@@ -5,3 +5,4 @@ venv
 # Ignore files
 *.csv
 *.json
+*.pyc
