@@ -1,2 +1,7 @@
+# Ignore folders
 .idea
 venv
+
+# Ignore files
+*.csv
+*.json
