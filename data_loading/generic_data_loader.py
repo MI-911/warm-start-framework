@@ -35,6 +35,7 @@ class Rating:
 class DataLoader:
     def __init__(self, ratings, user_ratings, movie_indices, descriptive_entity_indices):
         self.ratings = ratings
+        self.user_ratings = user_ratings
         self.n_users = len(user_ratings)
         self.n_movies = len(movie_indices)
         self.n_descriptive_entities = len(descriptive_entity_indices)
