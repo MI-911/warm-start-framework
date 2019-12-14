@@ -51,6 +51,16 @@ def load_loo_data(path, movie_percentage=1, num_negative_samples=100, seed=1):
 
 
 def __sample(data_loader, modified_ratings, all_ratings, entity_count, num_negative):
+    """
+    Samples a liked movie, and find n negative samples (unrated by the user). Note changes modified_ratings and
+    entity_count by reference.
+    :param data_loader: Used for movie indexes :type data_loader: DataLoader
+    :param modified_ratings: Rating that allows for side effects. :type modified_ratings: [Ratings]
+    :param all_ratings: All movie ratings for the user. :type all_ratings: [int]
+    :param entity_count: Number of ratings left in dataset for each entity. :type entity_count: dict
+    :param num_negative: Number of negative samples to sample, :type num_negative: int
+    :return: Tuple containing positive sample, and a list of negative samples.
+    """
     do_sample = True
     sample = None
 
