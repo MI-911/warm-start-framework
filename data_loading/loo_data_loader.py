@@ -21,6 +21,8 @@ def load_loo_data(path, movie_percentage=1):
         # Skip entities with to few ratings
         if entity_num_ratings[uri] < 2:
             continue
+
+        # Ensure user is in dictionary
         user_id = user_idx[user]
         if user_id not in user_ratings:
             user_ratings[user_id] = []
@@ -31,26 +33,38 @@ def load_loo_data(path, movie_percentage=1):
     shuffle(user_ratings)
 
     train = []
+    validation = []
     test = []
+
+    # Iterate over all users and sample a rating for validation and testing.
     for user, ratings in user_ratings:
-        do_sample = True
-        sample, rating = None, None
+        val_sample = __sample(ratings, idx_movie, idx_entity, entity_num_ratings)
+        test_sample = __sample(ratings, idx_movie, idx_entity, entity_num_ratings)
 
-        while do_sample:
-            sample, rating = random.sample(ratings, 1)[0]
-            sample_uri = idx_entity[sample]
-
-            if sample in idx_movie and \
-                    sample_uri in entity_num_ratings and \
-                    entity_num_ratings[sample_uri] - 1 > 0:
-                do_sample = False
-
-        entity_num_ratings[sample_uri] -= 1
-        ratings.remove((sample, rating))
         train.append((user, ratings))
-        test.append((user, (sample, rating)))
+        validation.append((user, val_sample))
+        test.append((user, test_sample))
 
     return train, test
+
+
+def __sample(ratings, idx_movie, idx_entity, entity_count):
+    do_sample = True
+    sample, rating = None, None
+
+    while do_sample:
+        sample, rating = random.sample(ratings, 1)[0]
+        sample_uri = idx_entity[sample]
+
+        if sample in idx_movie and \
+                sample_uri in entity_count and \
+                entity_count[sample_uri] - 1 > 0:
+            do_sample = False
+            entity_count[sample_uri] -= 1
+
+    ratings.remove((sample, rating))
+
+    return sample, rating
 
 
 if __name__ == '__main__':
