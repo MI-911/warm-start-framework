@@ -32,8 +32,8 @@ def remove_unrated_entities(ratings, min_num_ratings=5):
 class User:
     def __init__(self, idx):
         self.idx = idx
-        self.movie_ratings = {}
-        self.descriptive_entity_ratings = {}
+        self.movie_ratings = []
+        self.descriptive_entity_ratings = []
 
 
 class Rating:
@@ -45,22 +45,21 @@ class Rating:
 
 
 class DataLoader:
-    def __init__(self, ratings, user_ratings, movie_indices, descriptive_entity_indices):
+    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices):
         print(f'Init dataloader with {len(ratings)} ratings')
         self.ratings = ratings
-        self.user_ratings = user_ratings
-        self.n_users = len(user_ratings)
+        self.n_users = n_users
         self.n_movies = len(movie_indices)
         self.n_descriptive_entities = len(descriptive_entity_indices)
         self.descriptive_entity_indices = descriptive_entity_indices
         self.movie_indices = movie_indices
 
     @staticmethod
-    def load_from(path, filter_unknowns=True):
-        return DataLoader(*DataLoader._load_from(path, filter_unknowns))
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
+        return DataLoader(*DataLoader._load_from(path, filter_unknowns, movies_only))
 
     @staticmethod
-    def _load_from(path, filter_unknowns=True, min_num_ratings_per_entity=5):
+    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
         with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
             ratings = json.load(ratings_p)
         with open(os.path.join(path, 'entities_clean.json')) as entities_p:
@@ -72,8 +71,12 @@ class DataLoader:
         if filter_unknowns:
             ratings = [(u, e, r) for u, e, r in ratings if not r == 0]
 
+        # Remove entity ratings?
+        if movies_only:
+            ratings = [(u, e, r) for u, e, r in ratings if 'Movie' in label_map[e]]
+
         # Remove entities with < 5 or so ratings (so we can put at least one in each bucket for 5-fold)
-        ratings = remove_unrated_entities(ratings, min_num_ratings=min_num_ratings_per_entity)
+        ratings = remove_unrated_entities(ratings, min_num_ratings=min_num_entity_ratings)
 
         # Create index mappings
         u_idx_map, uc = {}, 0
@@ -96,17 +99,7 @@ class DataLoader:
 
         random.Random(42).shuffle(ratings)
 
-        # Build user-major ratings
-        user_ratings = {}
-        for rating in ratings:
-            if rating.u_idx not in user_ratings:
-                user_ratings[rating.u_idx] = User(rating.u_idx)
-            if rating.is_movie_rating:
-                user_ratings[rating.u_idx].movie_ratings[rating.e_idx] = rating.rating
-            else:
-                user_ratings[rating.u_idx].descriptive_entity_ratings[rating.e_idx] = rating.rating
-
-        return ratings, user_ratings, movie_indices, descriptive_entity_indices
+        return ratings, uc, movie_indices, descriptive_entity_indices
 
     def info(self):
         return f''' 
