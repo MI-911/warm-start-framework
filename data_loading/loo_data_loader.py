@@ -2,32 +2,28 @@ import random
 from collections import Counter
 from random import shuffle
 
-from data_loading.generic_data_loader import load_csv_data_ratings, load_csv_mindreader_ratings_with_indices
+from data_loading.generic_data_loader import DataLoader
 
 
-def load_loo_data(path, movie_percentage=1):
-    data, user_idx, entity_idx = load_csv_mindreader_ratings_with_indices(path)
-    idx_entity = {idx: entity for entity, idx in entity_idx.items()}
-
-    # Get movie indices
-    idx_movie = {entity_idx[uri]: uri for uri in set(data[data[:, 2].astype(bool)][:, 1])}
+def load_loo_data(path, movie_percentage=1, num_negative_samples=100, seed=1):
+    random.seed(seed)
+    data_loader = DataLoader.load_from(path)
 
     # Get number of ratings per entity
-    entity_num_ratings = Counter(data[:, 1])
+    entity_num_ratings = Counter([rating.e_idx for rating in data_loader.ratings])
 
     # Get rating per user
     user_ratings = {}
-    for user, uri, is_item, rating in data:
+    for rating in data_loader.ratings:
         # Skip entities with to few ratings
-        if entity_num_ratings[uri] < 2:
+        if entity_num_ratings[rating.e_idx] < 3:
             continue
 
         # Ensure user is in dictionary
-        user_id = user_idx[user]
-        if user_id not in user_ratings:
-            user_ratings[user_id] = []
+        if rating.u_idx not in user_ratings:
+            user_ratings[rating.u_idx] = []
 
-        user_ratings[user_id].append((entity_idx[uri], int(is_item)))
+        user_ratings[rating.u_idx].append(rating)
 
     user_ratings = list(user_ratings.items())
     shuffle(user_ratings)
@@ -38,37 +34,53 @@ def load_loo_data(path, movie_percentage=1):
 
     # Iterate over all users and sample a rating for validation and testing.
     for user, ratings in user_ratings:
-        val_sample = __sample(ratings, idx_movie, idx_entity, entity_num_ratings)
-        test_sample = __sample(ratings, idx_movie, idx_entity, entity_num_ratings)
+        all_movie_ratings = [rating.e_idx for rating in ratings if rating.is_movie_rating]
+
+        # Skip users with too few positive ratings.
+        if len([1 for rating in ratings if rating.is_movie_rating and rating.rating == 1]) < 2:
+            continue
+
+        test_sample = __sample(data_loader, ratings, all_movie_ratings, entity_num_ratings, num_negative_samples)
+        val_sample = __sample(data_loader, ratings, all_movie_ratings, entity_num_ratings, num_negative_samples)
 
         train.append((user, ratings))
         validation.append((user, val_sample))
         test.append((user, test_sample))
 
-    return train, test
+    return train, validation, test
 
 
-def __sample(ratings, idx_movie, idx_entity, entity_count):
+def __sample(data_loader, modified_ratings, all_ratings, entity_count, num_negative):
     do_sample = True
-    sample, rating = None, None
+    sample = None
 
     while do_sample:
-        sample, rating = random.sample(ratings, 1)[0]
-        sample_uri = idx_entity[sample]
+        sample = random.sample(modified_ratings, 1)[0]
 
-        if sample in idx_movie and \
-                sample_uri in entity_count and \
-                entity_count[sample_uri] - 1 > 0:
+        # Ensure sample is movie, rated positively and is in train set.
+        if sample.is_movie_rating and \
+                sample.rating == 1 and \
+                sample.e_idx in entity_count and \
+                entity_count[sample.e_idx] - 1 > 0:
             do_sample = False
-            entity_count[sample_uri] -= 1
+            entity_count[sample.e_idx] -= 1
 
-    ratings.remove((sample, rating))
+    modified_ratings.remove(sample)
 
-    return sample, rating
+    do_sample = True
+    negative_samples = []
+    while do_sample:
+        negative_samples = random.sample(data_loader.movie_indices, num_negative)
+
+        # Continue if negative samples intersect with rating
+        if not set(negative_samples).intersection(set(all_ratings)):
+            do_sample = False
+
+    return sample.e_idx, negative_samples
 
 
 if __name__ == '__main__':
-    load_loo_data('mindreader/ratings.csv')
+    load_loo_data('mindreader/')
 
 
 
