@@ -18,6 +18,17 @@ def get_label_map(entities):
     return m
 
 
+def remove_unrated_entities(ratings, min_num_ratings=5):
+    entity_rating_counts = {}
+    for u, e, r in ratings:
+        if e not in entity_rating_counts:
+            entity_rating_counts[e] = 0
+        entity_rating_counts[e] += 1
+
+    ratings = [(u, e, r) for u, e, r in ratings if entity_rating_counts[e] >= min_num_ratings]
+    return ratings
+
+
 class User:
     def __init__(self, idx):
         self.idx = idx
@@ -35,6 +46,7 @@ class Rating:
 
 class DataLoader:
     def __init__(self, ratings, user_ratings, movie_indices, descriptive_entity_indices):
+        print(f'Init dataloader with {len(ratings)} ratings')
         self.ratings = ratings
         self.user_ratings = user_ratings
         self.n_users = len(user_ratings)
@@ -45,6 +57,10 @@ class DataLoader:
 
     @staticmethod
     def load_from(path, filter_unknowns=True):
+        return DataLoader(*DataLoader._load_from(path, filter_unknowns))
+
+    @staticmethod
+    def _load_from(path, filter_unknowns=True, min_num_ratings_per_entity=5):
         with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
             ratings = json.load(ratings_p)
         with open(os.path.join(path, 'entities_clean.json')) as entities_p:
@@ -55,6 +71,9 @@ class DataLoader:
         # Remove unknown ratings?
         if filter_unknowns:
             ratings = [(u, e, r) for u, e, r in ratings if not r == 0]
+
+        # Remove entities with < 5 or so ratings (so we can put at least one in each bucket for 5-fold)
+        ratings = remove_unrated_entities(ratings, min_num_ratings=min_num_ratings_per_entity)
 
         # Create index mappings
         u_idx_map, uc = {}, 0
@@ -87,7 +106,7 @@ class DataLoader:
             else:
                 user_ratings[rating.u_idx].descriptive_entity_ratings[rating.e_idx] = rating.rating
 
-        return DataLoader(ratings, user_ratings, movie_indices, descriptive_entity_indices)
+        return ratings, user_ratings, movie_indices, descriptive_entity_indices
 
     def info(self):
         return f''' 
