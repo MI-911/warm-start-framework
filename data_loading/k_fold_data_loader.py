@@ -1,4 +1,4 @@
-from data_loading.generic_data_loader import DataLoader
+from data_loading.generic_data_loader import DataLoader, User, Rating
 import random
 
 
@@ -9,10 +9,10 @@ class Bucket:
         self.entities_in_bucket = set()
         self.users_in_bucket = set()
 
-    def add(self, user, entity, rating):
+    def add(self, rating):
         self.ratings.append(rating)
-        self.users_in_bucket.add(user)
-        self.entities_in_bucket.add(entity)
+        self.users_in_bucket.add(rating.u_idx)
+        self.entities_in_bucket.add(rating.e_idx)
 
     def size(self):
         return len(self.ratings)
@@ -28,11 +28,11 @@ class KFoldLoader(DataLoader):
         self.n = n
         self.buckets = [Bucket(i) for i in range(self.n)]
 
-        for user in self.user_ratings.values():
-            for movie, rating in user.movie_ratings.items():
-                self._get_best_bucket(movie, user).add(user, movie, rating)
-            for entity, rating in user.descriptive_entity_ratings.items():
-                self._get_best_bucket(entity, user).add(user, entity, rating)
+        for user in self._get_user_major_ratings().values():
+            for r in user.movie_ratings:
+                self._get_best_bucket(r).add(r)
+            for r in user.descriptive_entity_ratings:
+                self._get_best_bucket(r).add(r)
 
     def generate_folds(self):
         bucket_set = set(self.buckets)
@@ -63,15 +63,15 @@ class KFoldLoader(DataLoader):
             n_entities_in_buckets: {[len(b.entities_in_bucket) for b in self.buckets]}
         '''
 
-    def _get_best_bucket(self, entity, user):
+    def _get_best_bucket(self, rating):
         # First, check if any bucket needs this entity
         for bucket in self.buckets:
-            if entity not in bucket.entities_in_bucket:
+            if rating.e_idx not in bucket.entities_in_bucket:
                 return bucket
 
         # Then, if any bucket needs this user
         for bucket in self.buckets:
-            if user not in bucket.users_in_bucket:
+            if rating.u_idx not in bucket.users_in_bucket:
                 return bucket
 
         # Otherwise, fill the smallest bucket
@@ -81,6 +81,19 @@ class KFoldLoader(DataLoader):
                 smallest_bucket = bucket
 
         return smallest_bucket
+
+    def _get_user_major_ratings(self):
+        user_ratings_map = {}
+        for r in self.ratings:
+            if r.u_idx not in user_ratings_map:
+                user_ratings_map[r.u_idx] = User(r.u_idx)
+            u = user_ratings_map[r.u_idx]
+            if r.is_movie_rating:
+                u.movie_ratings.append(r)
+            else:
+                u.descriptive_entity_ratings.append(r)
+
+        return user_ratings_map
 
 
 if __name__ == '__main__':
