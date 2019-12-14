@@ -6,12 +6,13 @@ from os.path import join
 import pandas as pd
 import requests
 
+
 def _ensure_directory_exists(path):
     if not os.path.exists(path):
         os.mkdir(path)
 
 
-def download_data(save_to='mindreader', only_completed=True):
+def download_data(save_to='./mindreader', only_completed=True):
     """
     Downloads the mindreader dataset.
     :param save_to: Directory to save ratings.csv and entities.csv.

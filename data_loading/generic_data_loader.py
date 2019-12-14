@@ -1,42 +1,89 @@
 import numpy as np
 import pandas as pd
-
-"""
-Loads data almost unmanipulated.
-"""
+import os
+import json
 
 
-def load_csv_data_ratings(path, select_columns=None):
-    """
-    Loads data from a csv file and returns selected columns as a list of lists.
-    :param path: Path to datafile.
-    :param select_columns: A list of selected column names.
-    :return: A list, with the selected columns as lists.
-    """
-    if select_columns is None:
-        select_columns = ['userId', 'uri', 'isItem', 'sentiment']
+def get_label_map(entities):
+    m = {}
+    for uri, name, labels in entities:
+        if uri not in m:
+            m[uri] = []
 
-    df = pd.read_csv(path)
-    df = df[select_columns]
+        for label in labels.split('|'):
+            if label not in m[uri]:
+                m[uri].append(label)
 
-    return np.array([val.to_numpy() for _, val in df.iterrows()])
+    return m
 
 
-def load_csv_mindreader_ratings_with_indices(path):
-    """
-    Loads mindreader data ratings and creates index for entities and users
-    :param path: Path to datafile
-    :return: Data, user to index and entity to index
-    """
+class Rating:
+    def __init__(self, u_idx, e_idx, rating, is_movie_rating):
+        self.u_idx = u_idx  # User
+        self.e_idx = e_idx  # Entity
+        self.rating = rating  # Rating
+        self.is_movie_rating = is_movie_rating  # Is this a movie or DE rating?
 
-    data = load_csv_data_ratings(path)
 
-    user_index = {user: i for i, user in enumerate(set(data[:, 0]))}
-    entity_index = {entity: i for i, entity in enumerate(set(data[:, 1]))}
+class DataLoader:
+    def __init__(self, ratings, n_users, n_movies, n_descriptive_entities, movie_indices, descriptive_entity_indices):
+        self.ratings = ratings
+        self.n_users = n_users
+        self.n_movies = n_movies
+        self.n_descriptive_entities = n_descriptive_entities
+        self.descriptive_entity_indices = descriptive_entity_indices
+        self.movie_indices = movie_indices
 
-    return data, user_index, entity_index
+    @staticmethod
+    def load_from(path, filter_unknowns=True):
+        with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
+            ratings = json.load(ratings_p)
+        with open(os.path.join(path, 'entities_clean.json')) as entities_p:
+            entities = json.load(entities_p)
+
+        label_map = get_label_map(entities)
+
+        # Remove unknown ratings?
+        if filter_unknowns:
+            ratings = [(u, e, r) for u, e, r in ratings if not r == 0]
+
+        # Create index mappings
+        u_idx_map, uc = {}, 0
+        e_idx_map, ec = {}, 0
+        movie_indices, descriptive_entity_indices = [], []
+
+        for user, entity, rating in ratings:
+            if user not in u_idx_map:
+                u_idx_map[user] = uc
+                uc += 1
+            if entity not in e_idx_map:
+                e_idx_map[entity] = ec
+                if 'Movie' in label_map[entity]:
+                    movie_indices.append(ec)
+                else:
+                    descriptive_entity_indices.append(ec)
+                ec += 1
+
+        n_users = uc
+        n_movies = len(movie_indices)
+        n_descriptive_entities = len(descriptive_entity_indices)
+        ratings = [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
+        return DataLoader(ratings, n_users, n_movies, n_descriptive_entities, movie_indices, descriptive_entity_indices)
+
+    def info(self):
+        return f''' 
+            DataLoader Information
+            -----------------------------------
+            n_users:                      {self.n_users}
+            n_movies:                     {self.n_movies}
+            n_descriptive_entities:       {self.n_descriptive_entities}
+
+            n_ratings:                    {len(self.ratings)}
+            n_movie_ratings:              {len([rating for rating in self.ratings if rating.is_movie_rating])}
+            n_descriptive_entity_ratings: {len([rating for rating in self.ratings if not rating.is_movie_rating])}
+        '''
 
 
 if __name__ == '__main__':
-    a = load_csv_mindreader_ratings_with_indices('mindreader/ratings.csv')
-    print(a[:10])
+    data_loader = DataLoader.load_from('./mindreader', filter_unknowns=True)
+    print(data_loader.info())
