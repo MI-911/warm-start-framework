@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 import json
+import random
 
 
 def get_label_map(entities):
@@ -73,6 +74,8 @@ class DataLoader:
                 ec += 1
 
         ratings = [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
+
+        random.Random(42).shuffle(ratings)
 
         # Build user-major ratings
         user_ratings = {}
