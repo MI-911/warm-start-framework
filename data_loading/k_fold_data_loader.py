@@ -50,8 +50,8 @@ class KFoldLoader(DataLoader):
             yield train_ratings, test_ratings
 
     @staticmethod
-    def load_from(path, filter_unknowns=True):
-        return KFoldLoader(DataLoader._load_from(path, filter_unknowns))
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
+        return KFoldLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only))
 
     def info(self):
         return f'''
@@ -97,7 +97,10 @@ class KFoldLoader(DataLoader):
 
 
 if __name__ == '__main__':
-    data_loader = KFoldLoader.load_from('./mindreader')
+    data_loader = KFoldLoader.load_from('./mindreader',
+                                        filter_unknowns=True,
+                                        movies_only=False,
+                                        min_num_entity_ratings=5)
     data_loader.fill_buckets(n=5)
     print(data_loader.info())
 
