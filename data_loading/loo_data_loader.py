@@ -5,7 +5,7 @@ from random import shuffle
 from data_loading.generic_data_loader import DataLoader
 
 
-def load_loo_data(path, movie_percentage=1, num_negative_samples=100, seed=1):
+def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=1):
     random.seed(seed)
     data_loader = DataLoader.load_from(path)
 
@@ -16,7 +16,7 @@ def load_loo_data(path, movie_percentage=1, num_negative_samples=100, seed=1):
     user_ratings = {}
     for rating in data_loader.ratings:
         # Skip entities with to few ratings
-        if entity_num_ratings[rating.e_idx] < 3:
+        if entity_num_ratings[rating.e_idx] < 2:
             continue
 
         # Ensure user is in dictionary
@@ -24,6 +24,11 @@ def load_loo_data(path, movie_percentage=1, num_negative_samples=100, seed=1):
             user_ratings[rating.u_idx] = []
 
         user_ratings[rating.u_idx].append(rating)
+
+    # Filter ratings to have part movies and part entities.
+    for user, ratings in user_ratings.items():
+        user_ratings[user] = __filter_ratings(ratings, movie_percentage)
+    entity_num_ratings = Counter([rating.e_idx for rating in data_loader.ratings])
 
     user_ratings = list(user_ratings.items())
     shuffle(user_ratings)
@@ -89,8 +94,29 @@ def __sample(data_loader, modified_ratings, all_ratings, entity_count, num_negat
     return sample.e_idx, negative_samples
 
 
+def __filter_ratings(ratings, movie_percentage):
+    movies = [rating for rating in ratings if rating.is_movie_rating]
+    d_entities = [rating for rating in ratings if not rating.is_movie_rating]
+
+    movie_length = int(len(movies) * movie_percentage)
+    d_entity_length = len(movies) - movie_length
+
+    if len(d_entities) < d_entity_length:
+        d_entity_length = int(len(d_entities) * (1 - movie_percentage))
+        movie_length = len(d_entities) - d_entity_length
+
+    # Randomly sample
+    movies = random.sample(movies, movie_length)
+    d_entities = random.sample(d_entities, d_entity_length)
+
+    # Return movies and descriptive entities shuffled
+    ratings = movies + d_entities
+    random.shuffle(ratings)
+    return ratings
+
+
 if __name__ == '__main__':
-    load_loo_data('mindreader/')
+    load_loo_data('mindreader/', movie_percentage=0.5)
 
 
 
