@@ -17,6 +17,13 @@ def get_label_map(entities):
     return m
 
 
+class User:
+    def __init__(self, idx):
+        self.idx = idx
+        self.movie_ratings = {}
+        self.descriptive_entity_ratings = {}
+
+
 class Rating:
     def __init__(self, u_idx, e_idx, rating, is_movie_rating):
         self.u_idx = u_idx  # User
@@ -26,11 +33,11 @@ class Rating:
 
 
 class DataLoader:
-    def __init__(self, ratings, n_users, n_movies, n_descriptive_entities, movie_indices, descriptive_entity_indices):
+    def __init__(self, ratings, user_ratings, movie_indices, descriptive_entity_indices):
         self.ratings = ratings
-        self.n_users = n_users
-        self.n_movies = n_movies
-        self.n_descriptive_entities = n_descriptive_entities
+        self.n_users = len(user_ratings)
+        self.n_movies = len(movie_indices)
+        self.n_descriptive_entities = len(descriptive_entity_indices)
         self.descriptive_entity_indices = descriptive_entity_indices
         self.movie_indices = movie_indices
 
@@ -64,11 +71,19 @@ class DataLoader:
                     descriptive_entity_indices.append(ec)
                 ec += 1
 
-        n_users = uc
-        n_movies = len(movie_indices)
-        n_descriptive_entities = len(descriptive_entity_indices)
         ratings = [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
-        return DataLoader(ratings, n_users, n_movies, n_descriptive_entities, movie_indices, descriptive_entity_indices)
+
+        # Build user-major ratings
+        user_ratings = {}
+        for rating in ratings:
+            if rating.u_idx not in user_ratings:
+                user_ratings[rating.u_idx] = User(rating.u_idx)
+            if rating.is_movie_rating:
+                user_ratings[rating.u_idx].movie_ratings[rating.e_idx] = rating.rating
+            else:
+                user_ratings[rating.u_idx].descriptive_entity_ratings[rating.e_idx] = rating.rating
+
+        return DataLoader(ratings, user_ratings, movie_indices, descriptive_entity_indices)
 
     def info(self):
         return f''' 
