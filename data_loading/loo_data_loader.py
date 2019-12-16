@@ -37,6 +37,8 @@ class DesignatedDataLoader(DataLoader):
                 movie_counts[m] += 1
 
         for u, ratings in u_r_map.items():
+            # Set the random generator for this user
+            self.random = random.Random(self.random_seed + u + int(100 * movie_to_entity_ratio))
 
             # All positive samples must have at least one appearance in the training set
             available_movies = [m for m, count in movie_counts.items() if count > 1]
@@ -129,7 +131,7 @@ class DesignatedDataLoader(DataLoader):
         seen_movies = set([r.e_idx for r in self.ratings if r.is_movie_rating and r.u_idx == user] + [pos_sample])
         all_movies = set([m for m, count in movie_counts.items() if count > 0])
         unseen_movies = list(all_movies - seen_movies)
-        random.Random(self.random_seed + int(100 * movie_to_entity_ratio)).shuffle(unseen_movies)
+        self.random.shuffle(unseen_movies)
         return unseen_movies[:n]
 
     def sample(self, user, ratings, liked_movie_ratings, n_negative_samples, r, movie_counts):

@@ -54,7 +54,7 @@ class DataLoader:
         self.descriptive_entity_indices = descriptive_entity_indices
         self.movie_indices = movie_indices
         self.e_idx_map = e_idx_map
-        self.random_seed = 51
+        self.random_seed = 51  # The run seed - change this at every run
         self.random = random.Random(self.random_seed)
 
     @staticmethod

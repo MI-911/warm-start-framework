@@ -324,7 +324,6 @@ if __name__ == '__main__':
                 #    a) FIRST: Standard corruption
                 #    b) TRY: Different corruptions for ratings and KG triples
 
-                # corrupted_train_ratings = corrupt_rating_triples(all_train_ratings, ratings_matrix, u_idx_to_matrix_map, e_idx_to_matrix_map)
                 corrupted_train_ratings = (
                     corrupt_std(all_train_ratings, user_indices + movie_indices + descriptive_entity_indices)
                     if standard_corruption else
