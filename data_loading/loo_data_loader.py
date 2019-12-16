@@ -5,7 +5,179 @@ from random import shuffle
 from data_loading.generic_data_loader import DataLoader
 
 
-def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=1):
+class DesignatedDataLoader(DataLoader):
+    def __init__(self, args):
+        super(DesignatedDataLoader, self).__init__(*args)
+        self.train = []
+        self.validation = []
+        self.test = []
+
+    def make(self, movie_to_entity_ratio=0.5, n_negative_samples=99):
+        """
+        Samples new positive and negative items for every user.
+        """
+        u_r_map = {}
+        for r in self.ratings:
+            if r.u_idx not in u_r_map:
+                u_r_map[r.u_idx] = []
+            u_r_map[r.u_idx].append(r)
+
+        for u, ratings in list(u_r_map.items()):
+            # Mix entity and movie ratings by the provided ratio
+            u_r_map[u] = self.mix_ratings(ratings, movie_to_entity_ratio)
+
+        train, validation, test = [], [], []
+
+        # We need to make sure that all negative samples also occur in the training set.
+        movie_counts = {}
+        for u, ratings in u_r_map.items():
+            for m in [r.e_idx for r in ratings if r.is_movie_rating]:
+                if m not in movie_counts:
+                    movie_counts[m] = 0
+                movie_counts[m] += 1
+
+        for u, ratings in u_r_map.items():
+
+            # All positive samples must have at least one appearance in the training set
+            available_movies = [m for m, count in movie_counts.items() if count > 1]
+            liked_movie_ratings = [
+                r for r in self.ratings  # All ratings in the dataset (not necessarily in this training set)
+                if r.is_movie_rating     # It's a movie
+                and r.rating == 1        # It's a liked movie
+                and r.e_idx in available_movies  # It appears at least once in the training set
+                and r.u_idx == u]        # It's rated by this user
+
+            if len(liked_movie_ratings) < 2:
+                continue  # We need at least two liked movies for every user
+
+            # Randomly sample the positive samples and remove them from the training ratings
+            val_pos_sample, test_pos_sample = self.random.sample(liked_movie_ratings, 2)
+
+            # If these movies appear in this user's training set, remove them
+            if val_pos_sample in ratings:
+                ratings.remove(val_pos_sample)
+            if test_pos_sample in ratings:
+                ratings.remove(test_pos_sample)
+
+            # These samples now occur one less time in this training set
+            val_pos_sample, test_pos_sample = val_pos_sample.e_idx, test_pos_sample.e_idx
+            movie_counts[val_pos_sample] -= 1
+            movie_counts[test_pos_sample] -= 1
+
+            # Randomly sample 99 negative samples that all appear in the training set at least once
+            val_neg_samples = self.sample_negative(u, movie_counts, n_negative_samples, movie_to_entity_ratio, val_pos_sample)
+            test_neg_samples = self.sample_negative(u, movie_counts, n_negative_samples, movie_to_entity_ratio, test_pos_sample)
+
+            assert len(val_neg_samples) == n_negative_samples
+            assert len(test_neg_samples) == n_negative_samples
+
+            train.append((u, ratings))
+            validation.append((u, (val_pos_sample, val_neg_samples)))
+            test.append((u, (test_pos_sample, test_neg_samples)))
+
+        # Verify that all positive samples are not in a user's train ratings
+        print(f'Asserting positive samples not in training set for each user...')
+        for u, (pos_sample, neg_samples) in validation:
+            train_movies = [r.e_idx for r in u_r_map[u]]
+            assert pos_sample not in train_movies
+            assert pos_sample in self.movie_indices
+
+        for u, (pos_sample, neg_samples) in test:
+            train_movies = [r.e_idx for r in u_r_map[u]]
+            assert pos_sample not in train_movies
+            assert pos_sample in self.movie_indices
+
+        for (u, (pos_sample, neg_samples)), (u_, ratings) in zip(validation, train):
+            assert u == u_
+            assert pos_sample not in [r.e_idx for r in ratings]
+
+        for (u, (pos_sample, neg_samples)), (u_, ratings) in zip(test, train):
+            assert u == u_
+            assert pos_sample not in [r.e_idx for r in ratings]
+
+        # Verify that all negative samples occur at least once in the training set
+        print(f'Asserting negative samples occurrence in training set, but not rated for each user...')
+        for u, (pos_sample, neg_samples) in validation:
+            user_rated_movies = [r.e_idx for r in u_r_map[u]]
+            for neg_sample in neg_samples:
+                assert neg_sample not in user_rated_movies
+                assert neg_sample in movie_counts and movie_counts[neg_sample] > 0
+                assert neg_sample in self.movie_indices
+
+        for u, (pos_sample, neg_samples) in test:
+            user_rated_movies = [r.e_idx for r in u_r_map[u]]
+            for neg_sample in neg_samples:
+                assert neg_sample not in user_rated_movies
+                assert neg_sample in movie_counts and movie_counts[neg_sample] > 0
+                assert neg_sample in self.movie_indices
+
+        # Verify that no positive samples occur in the negative samples
+        print(f'Asserting positive samples do not occur in negative samples...')
+        for u, (pos_sample, neg_samples) in validation:
+            assert pos_sample not in neg_samples
+
+        for u, (pos_sample, neg_samples) in test:
+            assert pos_sample not in neg_samples
+
+        self.train = train
+        self.validation = validation
+        self.test = test
+
+        return train, validation, test
+
+    def sample_negative(self, user, movie_counts, n, movie_to_entity_ratio, pos_sample):
+        seen_movies = set([r.e_idx for r in self.ratings if r.is_movie_rating and r.u_idx == user] + [pos_sample])
+        all_movies = set([m for m, count in movie_counts.items() if count > 0])
+        unseen_movies = list(all_movies - seen_movies)
+        random.Random(self.random_seed + int(100 * movie_to_entity_ratio)).shuffle(unseen_movies)
+        return unseen_movies[:n]
+
+    def sample(self, user, ratings, liked_movie_ratings, n_negative_samples, r, movie_counts):
+        """
+        Samples one liked movie and removes it from the user's ratings.
+        Samples n_negative_samples unseen movies.
+        """
+        # Positive sample
+        positive_sample = r.choice(liked_movie_ratings)
+        liked_movie_ratings.remove(positive_sample)
+        ratings.remove(positive_sample)
+        movie_counts[positive_sample.e_idx] -= 1
+
+        # Negative samples
+        seen_movies = set([r.e_idx for r in self.ratings if r.is_movie_rating and r.u_idx == user])
+        all_movies = set([m for m, count in movie_counts.items() if count > 0])
+        unseen_movies = list(all_movies - seen_movies)
+        r.shuffle(unseen_movies)
+        negative_samples = unseen_movies[:n_negative_samples]
+
+        return positive_sample.e_idx, negative_samples
+
+    def mix_ratings(self, ratings, movie_to_entity_ratio):
+        movies = [rating for rating in ratings if rating.is_movie_rating]
+        d_entities = [rating for rating in ratings if not rating.is_movie_rating]
+
+        movie_length = int(len(movies) * movie_to_entity_ratio)
+        d_entity_length = len(movies) - movie_length
+
+        if len(d_entities) < d_entity_length:
+            d_entity_length = int(len(d_entities) * (1 - movie_to_entity_ratio))
+            movie_length = len(d_entities) - d_entity_length
+
+        # Randomly sample
+        movies = self.random.sample(movies, movie_length)
+        d_entities = self.random.sample(d_entities, d_entity_length)
+
+        # Return movies and descriptive entities shuffled
+        ratings = movies + d_entities
+        self.random.shuffle(ratings)
+        return ratings
+
+    @staticmethod
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
+        return DesignatedDataLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only))
+
+
+def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=42):
     random.seed(seed)
     data_loader = DataLoader.load_from(path)
 
@@ -117,7 +289,3 @@ def __filter_ratings(ratings, movie_percentage):
 
 if __name__ == '__main__':
     load_loo_data('mindreader/', movie_percentage=0.5)
-
-
-
-

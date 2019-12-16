@@ -22,20 +22,25 @@ def download_data(save_to='./mindreader', only_completed=True):
 
     ratings_url = 'https://mindreader.tech/api/ratings?versions=100k,100k-newer,100k-fix'
     entities_url = 'https://mindreader.tech/api/entities'
+    triples_url = 'https://mindreader.tech/api/triples'
 
     if only_completed:
         ratings_url += '&final=yes'
 
     ratings_response = requests.get(ratings_url)
     entities_response = requests.get(entities_url)
+    triples_response = requests.get(triples_url)
 
     ratings = pd.read_csv(io.BytesIO(ratings_response.content))
     entities = pd.read_csv(io.BytesIO(entities_response.content))
+    triples = pd.read_csv(io.BytesIO(triples_response.content))
 
     with open(join(save_to, 'ratings.csv'), 'w') as rfp:
         pd.DataFrame.to_csv(ratings, rfp)
     with open(join(save_to, 'entities.csv'), 'w') as efp:
         pd.DataFrame.to_csv(entities, efp)
+    with open(join(save_to, 'triples.csv'), 'w') as efp:
+        pd.DataFrame.to_csv(triples, efp)
 
     ratings = [(uid, uri, rating) for uid, uri, rating in ratings[['userId', 'uri', 'sentiment']].values]
     entities = [(uri, name, labels) for uri, name, labels in entities[['uri', 'name', 'labels']].values]

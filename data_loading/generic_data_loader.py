@@ -45,7 +45,7 @@ class Rating:
 
 
 class DataLoader:
-    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices):
+    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices, e_idx_map):
         print(f'Init dataloader with {len(ratings)} ratings')
         self.ratings = ratings
         self.n_users = n_users
@@ -53,6 +53,9 @@ class DataLoader:
         self.n_descriptive_entities = len(descriptive_entity_indices)
         self.descriptive_entity_indices = descriptive_entity_indices
         self.movie_indices = movie_indices
+        self.e_idx_map = e_idx_map
+        self.random_seed = 51
+        self.random = random.Random(self.random_seed)
 
     @staticmethod
     def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
@@ -69,7 +72,7 @@ class DataLoader:
 
         # Remove unknown ratings?
         if filter_unknowns:
-            ratings = [(u, e, r) for u, e, r in ratings if not r == 0]
+            ratings = [(u, e, r) for u, e, r in ratings if not (r == 0)]
 
         # Remove entity ratings?
         if movies_only:
@@ -95,11 +98,12 @@ class DataLoader:
                     descriptive_entity_indices.append(ec)
                 ec += 1
 
-        ratings = [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
+        ratings = [Rating(u_idx_map[u] + ec, e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
+        # ratings = [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
 
         random.Random(42).shuffle(ratings)
 
-        return ratings, uc, movie_indices, descriptive_entity_indices
+        return ratings, uc, movie_indices, descriptive_entity_indices, e_idx_map
 
     def info(self):
         return f''' 

@@ -4,6 +4,7 @@ import torch.optim as optim
 from models.mf import MF
 from metrics.metrics import average_precision
 from data_loading.k_fold_data_loader import KFoldLoader, User, Rating
+import random
 
 
 def unpack(rating):
@@ -35,10 +36,10 @@ def get_user_ratings_map(ratings):
 def eval():
     data_loader = KFoldLoader.load_from('../data_loading/mindreader',
                                         filter_unknowns=True,
-                                        movies_only=False,
+                                        movies_only=True,
                                         min_num_entity_ratings=5)
     data_loader.fill_buckets(5)
-    n_epochs = 10
+    n_epochs = 100
     batch_size = 64
 
     result_strings = []
@@ -58,6 +59,8 @@ def eval():
 
         for epoch in range(n_epochs):
             print(f'Evaluating at epoch {epoch}...')
+
+            random.shuffle(train_ratings)
 
             with tt.no_grad():
                 model.eval()

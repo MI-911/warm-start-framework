@@ -43,9 +43,9 @@ class TransE(nn.Module):
         r_e = self.relation_embeddings(relation)
         t_e = self.entity_embeddings(tail)
 
-        # h_e = ff.normalize(h_e, p=2, dim=1)
-        # r_e = ff.normalize(r_e, p=2, dim=1)
-        # t_e = ff.normalize(t_e, p=2, dim=1)
+        h_e = ff.normalize(h_e, p=2, dim=1)
+        r_e = ff.normalize(r_e, p=2, dim=1)
+        t_e = ff.normalize(t_e, p=2, dim=1)
 
         p_t_e = h_e + r_e
 
@@ -72,36 +72,49 @@ class TransE(nn.Module):
         differences = tt.norm(differences, p=2, dim=1)
         return differences
 
-    def fast_validate(self, h, r, t, movie_indices):
+    def fast_validate(self, h, r, t):
         h, r, t = self.params_to(h, r, t, self.device)
-        movie_indices = tt.tensor(movie_indices).to(self.device)
 
-        # self.normalize_entity_embeddings()
+        self.normalize_entity_embeddings()
 
         h_e = self.entity_embeddings(h)
         r_e = self.relation_embeddings(r)
         t_e = self.entity_embeddings(t)
 
-        target_loss = tt.norm(h_e + r_e - t_e, 2).repeat(len(movie_indices), 1)
+        target_loss = tt.norm(h_e + r_e - t_e, 2).repeat(self.n_entities, 1)
 
-        # tmp_h_loss = tt.norm(self.entity_embeddings.weight.data + (r_e - t_e), 2, 1).view(-1, 1)
-        tmp_t_loss = tt.norm((h_e + r_e) - self.entity_embeddings(movie_indices), 2, 1).view(-1, 1)
+        tmp_h_loss = tt.norm(self.entity_embeddings.weight.data + (r_e - t_e), 2, 1).view(-1, 1)
+        tmp_t_loss = tt.norm((h_e + r_e) - self.entity_embeddings.weight.data, 2, 1).view(-1, 1)
 
-        # rank_h = tt.nonzero(ff.relu(target_loss - tmp_h_loss)).size()[0]
+        rank_h = tt.nonzero(ff.relu(target_loss - tmp_h_loss)).size()[0]
         rank_t = tt.nonzero(ff.relu(target_loss - tmp_t_loss)).size()[0]
 
-        # return (rank_h + rank_t) / 2
-        return rank_t
+        return (rank_h + rank_t) / 2
 
     def predict_movies_for_user(self, u_idx, relation_idx, movie_indices):
+
         u_idx, relation_idx, movie_indices = self.params_to(u_idx, relation_idx, movie_indices, self.device)
         prediction_vector = self.entity_embeddings(u_idx) + self.relation_embeddings(relation_idx)
 
         # Calculate similarity to all movie embeddings
         movie_embeddings = self.entity_embeddings(movie_indices)
-        similarities = movie_embeddings @ prediction_vector
+        similarities = tt.norm(prediction_vector - movie_embeddings, p=2, dim=1)
+        # similarities = movie_embeddings @ prediction_vector
 
         return zip(movie_indices, similarities)
+
+    def fast_rank(self, u_idx, relation_idx, pos_sample, neg_samples):
+        u_idx, relation_idx, movie_indices = self.params_to(u_idx, relation_idx, neg_samples + [pos_sample], self.device)
+        pos_sample = tt.tensor(pos_sample).to(self.device)
+
+        prediction_vector = self.entity_embeddings(u_idx) + self.relation_embeddings(relation_idx)
+        movie_embeddings = self.entity_embeddings(movie_indices)
+        target_distance = tt.norm(prediction_vector - self.entity_embeddings(pos_sample), p=2)
+
+        all_distances = tt.norm(prediction_vector - movie_embeddings, p=2, dim=1)
+        all_distances -= target_distance
+        better_items = tt.where(all_distances < 0)[0]
+        return len(better_items)
 
 
 if __name__ == '__main__':
