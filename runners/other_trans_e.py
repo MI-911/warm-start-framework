@@ -173,10 +173,10 @@ if __name__ == '__main__':
             # Standard corruption, no KG
 
             # [N_EPOCHS, MOVIE_RATIO, ALL_RATIO, STANDARD_CORRUPTION, WITH_KG_TRIPLES]
-            [100, 4, 4, True, False],
-            [100, 3, 4, True, False],
-            [100, 2, 4, True, False],
-            [100, 1, 4, True, False],
+            # [100, 4, 4, True, False],
+            # [100, 3, 4, True, False],
+            # [100, 2, 4, True, False],
+            # [100, 1, 4, True, False],
             #
             # # Custom corruption, no KG
             # [100, 4, 4, False, False],
@@ -185,16 +185,16 @@ if __name__ == '__main__':
             # [100, 1, 4, False, False],
 
             # Standard corruption, with KG
-            [100, 4, 4, True, True],
-            [100, 3, 4, True, True],
-            [100, 2, 4, True, True],
-            [100, 1, 4, True, True],
+            # [100, 4, 4, True, True],
+            # [100, 3, 4, True, True],
+            # [100, 2, 4, True, True],
+            # [100, 1, 4, True, True],
 
             # Custom corruption, with KG
-            # [100, 4, 4, False, True],
-            # [100, 3, 4, False, True],
-            # [100, 2, 4, False, True],
-            # [100, 1, 4, False, True],
+            [100, 4, 4, False, True],
+            [100, 3, 4, False, True],
+            [100, 2, 4, False, True],
+            [100, 1, 4, False, True],
         ]
         for n_epochs, movie_ratio, all_ratio, standard_corruption, with_kg_triples in configs:
             # Training configuration
@@ -218,7 +218,8 @@ if __name__ == '__main__':
                 path='../data_loading/mindreader',
                 movies_only=False,
                 min_num_entity_ratings=5,
-                filter_unknowns=True
+                filter_unknowns=True,
+                unify_user_indices=True
             )
 
             data_loader.random_seed = random_seed
@@ -227,7 +228,8 @@ if __name__ == '__main__':
 
             train, validation, test = data_loader.make(
                 movie_to_entity_ratio=movie_ratio / all_ratio,
-                n_negative_samples=99
+                n_negative_samples=99,
+                replace_movies_with_descriptive_entities=True
             )
 
             # Hyper parameters
@@ -290,10 +292,10 @@ if __name__ == '__main__':
                     }
                 }
 
-                if not os.path.exists(f'../results/trans_e/proper_split/{random_seed}'):
-                    os.makedirs(f'../results/trans_e/proper_split/{random_seed}')
+                if not os.path.exists(f'../results/trans_e/user_seed/{random_seed}'):
+                    os.makedirs(f'../results/trans_e/user_seed/{random_seed}')
 
-                with open(f'../results/trans_e/proper_split/{random_seed}/{file_name}', 'w') as fp:
+                with open(f'../results/trans_e/user_seed/{random_seed}/{file_name}', 'w') as fp:
                     json.dump(to_save, fp, indent=True)
 
 

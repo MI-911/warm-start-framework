@@ -12,7 +12,7 @@ class DesignatedDataLoader(DataLoader):
         self.validation = []
         self.test = []
 
-    def make(self, movie_to_entity_ratio=0.5, n_negative_samples=99):
+    def make(self, movie_to_entity_ratio=0.5, replace_movies_with_descriptive_entities=True, n_negative_samples=99, keep_all_ratings=False):
         """
         Samples new positive and negative items for every user.
         """
@@ -22,9 +22,11 @@ class DesignatedDataLoader(DataLoader):
                 u_r_map[r.u_idx] = []
             u_r_map[r.u_idx].append(r)
 
-        for u, ratings in list(u_r_map.items()):
-            # Mix entity and movie ratings by the provided ratio
-            u_r_map[u] = self.mix_ratings(ratings, movie_to_entity_ratio)
+        if not keep_all_ratings:
+            for u, ratings in list(u_r_map.items()):
+                # Mix entity and movie ratings by the provided ratio
+                # Comment out this part to simply include all loaded ratings for each user
+                u_r_map[u] = self.mix_ratings(ratings, movie_to_entity_ratio, replace_movies_with_descriptive_entities)
 
         train, validation, test = [], [], []
 
@@ -67,8 +69,8 @@ class DesignatedDataLoader(DataLoader):
             movie_counts[test_pos_sample] -= 1
 
             # Randomly sample 99 negative samples that all appear in the training set at least once
-            val_neg_samples = self.sample_negative(u, movie_counts, n_negative_samples, movie_to_entity_ratio, val_pos_sample)
-            test_neg_samples = self.sample_negative(u, movie_counts, n_negative_samples, movie_to_entity_ratio, test_pos_sample)
+            val_neg_samples = self.sample_negative(u, movie_counts, n_negative_samples, val_pos_sample)
+            test_neg_samples = self.sample_negative(u, movie_counts, n_negative_samples, test_pos_sample)
 
             assert len(val_neg_samples) == n_negative_samples
             assert len(test_neg_samples) == n_negative_samples
@@ -121,13 +123,18 @@ class DesignatedDataLoader(DataLoader):
         for u, (pos_sample, neg_samples) in test:
             assert pos_sample not in neg_samples
 
+        assert len(train) == len(validation)
+        assert len(validation) == len(test)
+
+        print(f'Returning a dataset over {len(train)} users.')
+
         self.train = train
         self.validation = validation
         self.test = test
 
         return train, validation, test
 
-    def sample_negative(self, user, movie_counts, n, movie_to_entity_ratio, pos_sample):
+    def sample_negative(self, user, movie_counts, n, pos_sample):
         seen_movies = set([r.e_idx for r in self.ratings if r.is_movie_rating and r.u_idx == user] + [pos_sample])
         all_movies = set([m for m, count in movie_counts.items() if count > 0])
         unseen_movies = list(all_movies - seen_movies)
@@ -154,7 +161,7 @@ class DesignatedDataLoader(DataLoader):
 
         return positive_sample.e_idx, negative_samples
 
-    def mix_ratings(self, ratings, movie_to_entity_ratio):
+    def mix_ratings(self, ratings, movie_to_entity_ratio, replace_movies_with_entities=True):
         movies = [rating for rating in ratings if rating.is_movie_rating]
         d_entities = [rating for rating in ratings if not rating.is_movie_rating]
 
@@ -167,7 +174,7 @@ class DesignatedDataLoader(DataLoader):
 
         # Randomly sample
         movies = self.random.sample(movies, movie_length)
-        d_entities = self.random.sample(d_entities, d_entity_length)
+        d_entities = self.random.sample(d_entities, d_entity_length) if replace_movies_with_entities else []
 
         # Return movies and descriptive entities shuffled
         ratings = movies + d_entities
@@ -175,8 +182,10 @@ class DesignatedDataLoader(DataLoader):
         return ratings
 
     @staticmethod
-    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
-        return DesignatedDataLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only))
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False, remove_top_k_percent=None):
+        return DesignatedDataLoader(DataLoader._load_from(
+            path, filter_unknowns, min_num_entity_ratings, movies_only, unify_user_indices, remove_top_k_percent)
+        )
 
 
 def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=42):

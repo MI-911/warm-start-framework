@@ -29,6 +29,22 @@ def remove_unrated_entities(ratings, min_num_ratings=5):
     return ratings
 
 
+def remove_k_percent_most_popular_movies(ratings, label_map, k_percent):
+    entity_rating_counts = {}
+    for u, e, r in ratings:
+        if 'Movie' in label_map[e]:
+            if e not in entity_rating_counts:
+                entity_rating_counts[e] = 0
+            entity_rating_counts[e] += 1
+
+    sorted_entity_counts = sorted(entity_rating_counts.items(), key=lambda x: x[1], reverse=True)
+    sorted_entities = [e for e, count in sorted_entity_counts]
+
+    k = int(len(sorted_entities) * k_percent)
+    entities_to_discard = sorted_entities[:k]  # k most popular entities
+    return [(u, e, r) for u, e, r in ratings if e not in entities_to_discard]
+
+
 class User:
     def __init__(self, idx):
         self.idx = idx
@@ -45,7 +61,7 @@ class Rating:
 
 
 class DataLoader:
-    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices, e_idx_map):
+    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices, e_idx_map, backwards_u_map, backwards_e_map):
         print(f'Init dataloader with {len(ratings)} ratings')
         self.ratings = ratings
         self.n_users = n_users
@@ -57,12 +73,26 @@ class DataLoader:
         self.random_seed = 51  # The run seed - change this at every run
         self.random = random.Random(self.random_seed)
 
-    @staticmethod
-    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
-        return DataLoader(*DataLoader._load_from(path, filter_unknowns, movies_only))
+        # Backwards maps
+        self.backwards_u_map = backwards_u_map
+        self.backwards_e_map = backwards_e_map
 
     @staticmethod
-    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False):
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False, remove_top_k_percent=None):
+        """
+        Load rating triples from the provided path.
+        :param path: The path to load ratings from. Must include a ratings_clean.json and entities_clean.json.
+        :param filter_unknowns: (Boolean) Should unknown ratings be ignored?
+        :param min_num_entity_ratings: (Integer) How many ratings should each entity have, at minimum?
+        :param movies_only: (Boolean) Should descriptive entity ratings be ignored?
+        :param unify_user_indices: (Boolean) Should users be indexed in the same space as entities?
+        :param remove_top_k_percent: (Float) Ignores the top k% popular movies (not entities). Does nothing is None.
+        :return: A DataLoader instance.
+        """
+        return DataLoader(*DataLoader._load_from(path, filter_unknowns, movies_only, unify_user_indices, remove_top_k_percent))
+
+    @staticmethod
+    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False, remove_top_k_percent=None):
         with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
             ratings = json.load(ratings_p)
         with open(os.path.join(path, 'entities_clean.json')) as entities_p:
@@ -81,14 +111,25 @@ class DataLoader:
         # Remove entities with < 5 or so ratings (so we can put at least one in each bucket for 5-fold)
         ratings = remove_unrated_entities(ratings, min_num_ratings=min_num_entity_ratings)
 
+        # Remove most popular movies?
+        if remove_top_k_percent is not None:
+            assert isinstance(remove_top_k_percent, float)
+            ratings = remove_k_percent_most_popular_movies(ratings, label_map, remove_top_k_percent)
+
         # Create index mappings
         u_idx_map, uc = {}, 0
         e_idx_map, ec = {}, 0
         movie_indices, descriptive_entity_indices = [], []
 
+        # Create backwards mappings (to get URIs from indices)
+        backwards_u_map = {}
+        backwards_e_map = {}
+
         for user, entity, rating in ratings:
             if user not in u_idx_map:
                 u_idx_map[user] = uc
+                if uc not in backwards_u_map:
+                    backwards_u_map[uc] = user
                 uc += 1
             if entity not in e_idx_map:
                 e_idx_map[entity] = ec
@@ -96,14 +137,18 @@ class DataLoader:
                     movie_indices.append(ec)
                 else:
                     descriptive_entity_indices.append(ec)
+                if ec not in backwards_e_map:
+                    backwards_e_map[ec] = entity
+
                 ec += 1
 
-        ratings = [Rating(u_idx_map[u] + ec, e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
-        # ratings = [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
+        ratings = ([Rating(u_idx_map[u] + ec, e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings]
+                   if unify_user_indices else
+                   [Rating(u_idx_map[u], e_idx_map[e], r, e_idx_map[e] in movie_indices) for u, e, r in ratings])
 
         random.Random(42).shuffle(ratings)
 
-        return ratings, uc, movie_indices, descriptive_entity_indices, e_idx_map
+        return ratings, uc, movie_indices, descriptive_entity_indices, e_idx_map, backwards_u_map, backwards_e_map
 
     def info(self):
         return f''' 

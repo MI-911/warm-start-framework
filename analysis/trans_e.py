@@ -68,6 +68,7 @@ def plot(with_kg_triples=False):
     plt.ylabel('Distance between e(h) + e(r) and e(t) for recommendable items t')
     plt.xlabel('Epochs')
     plt.legend()
+    plt.grid()
     plt.show()
 
     # ------------- VAL HITRATE ----------
@@ -77,6 +78,7 @@ def plot(with_kg_triples=False):
     plt.ylabel('Hit@10')
     plt.xlabel('Epochs')
     plt.legend()
+    plt.grid()
     plt.show()
 
 
