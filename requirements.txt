@@ -1,3 +1,7 @@
 requests
 pandas
 tqdm
+numpy
+torch
+matplotlib
+seaborn
