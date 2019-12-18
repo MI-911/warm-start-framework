@@ -169,7 +169,7 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
 
 if __name__ == '__main__':
 
-    SAVE_DIR = '../results/trans_e/removing_movies_only'
+    SAVE_DIR = 'removing_movies_only'
 
     for random_seed in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
         configs = [
