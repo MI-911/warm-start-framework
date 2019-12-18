@@ -25,7 +25,7 @@ if __name__ == '__main__':
     data_loader = DesignatedDataLoader.load_from(
         path='../data_loading/mindreader',
         movies_only=False,
-        min_num_entity_ratings=5,
+        min_num_entity_ratings=1,
         filter_unknowns=True
     )
 
