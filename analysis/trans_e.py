@@ -40,7 +40,7 @@ def load_result_objects(path):
 
 
 def plot(with_kg_triples=False, standard_corruption=True):
-    result_objects = load_result_objects('../results/trans_e/removing_movies_only')
+    result_objects = load_result_objects('../old/removing_movies_only')
 
     # First without any KG triples
     for group, objects in list(result_objects.items()):
