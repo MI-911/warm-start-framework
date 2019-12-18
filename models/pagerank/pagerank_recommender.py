@@ -1,7 +1,8 @@
 import operator
+from csv import DictReader
 
 import tqdm
-from networkx import pagerank_scipy
+from networkx import pagerank_scipy, Graph
 
 from models.base_recommender import RecommenderBase
 import numpy as np
@@ -19,6 +20,27 @@ def construct_collaborative_graph(graph, training, only_positive=False):
 
             graph.add_node(rating.e_idx)
             graph.add_edge(user_id, rating.e_idx)
+
+    return graph
+
+
+def construct_knowledge_graph(triples_path, entity_idx):
+    graph = Graph()
+
+    with open(triples_path, 'r') as graph_fp:
+        graph_reader = DictReader(graph_fp)
+
+        for row in graph_reader:
+            head = row['head_uri']
+            tail = row['tail_uri']
+
+            head = entity_idx[head] if head in entity_idx else head
+            tail = entity_idx[tail] if tail in entity_idx else tail
+            relation = row['relation']
+
+            graph.add_node(head)
+            graph.add_node(tail)
+            graph.add_edge(head, tail, type=relation)
 
     return graph
 
