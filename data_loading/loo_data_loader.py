@@ -168,7 +168,7 @@ class DesignatedDataLoader(DataLoader):
         movie_length = int(len(movies) * movie_to_entity_ratio)
         d_entity_length = len(movies) - movie_length
 
-        if len(d_entities) < d_entity_length:
+        if len(d_entities) < d_entity_length and replace_movies_with_entities:
             d_entity_length = int(len(d_entities) * (1 - movie_to_entity_ratio))
             movie_length = len(d_entities) - d_entity_length
 

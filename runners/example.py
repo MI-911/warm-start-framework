@@ -1,5 +1,6 @@
 from data_loading.loo_data_loader import DesignatedDataLoader
 from data_loading.generic_data_loader import Rating
+from models.base_recommender import RecommenderBase
 
 
 if __name__ == '__main__':
@@ -70,6 +71,19 @@ if __name__ == '__main__':
                 n_negative_samples=99,
                 keep_all_ratings=False
             )
+
+            recommender = RecommenderBase(model='Some model')
+            recommender.fit(training=tra, validation=val)
+
+            for u, (pos_sample, neg_samples) in te:
+                scores = recommender.predict(u, neg_samples + [pos_sample])
+                predicted_rank = scores[pos_sample]
+
+                for k in range(50):
+                    # Calculate Hit@k for predicted_rank
+                    # Calculate DCG@k for predicted_rank
+                    # Store in save file
+                    pass
 
     # -------- SCENARIO 2: Run 10 runs, just remove movie ratings, don't replace with DEs
     for run in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:

@@ -9,21 +9,21 @@ def average_results(result_objects):
 
     train_loss = np.zeros(n_recordings)
     validation_hitrates = np.zeros(n_recordings)
-    test_hitrates = np.zeros(n_recordings)
+    validation_dcgs = np.zeros(n_recordings)
 
     for obj in result_objects:
         for i in range(n_recordings):
             train_loss[i] += obj['train_loss'][i]
             validation_hitrates[i] += obj['validation']['hit_ratio'][i]
-            test_hitrates[i] += obj['testing']['hit_ratio'][i]
+            validation_dcgs[i] += obj['validation']['dcg'][i]
 
     train_loss /= len(result_objects)
     validation_hitrates /= len(result_objects)
-    test_hitrates /= len(result_objects)
+    validation_dcgs /= len(result_objects)
 
     print(f'Returning hitrates: {validation_hitrates}')
 
-    return train_loss, validation_hitrates, test_hitrates
+    return train_loss, validation_hitrates, validation_dcgs
 
 
 def load_result_objects(path):
@@ -39,14 +39,17 @@ def load_result_objects(path):
     return result_objects
 
 
-def plot(with_kg_triples=False):
-    result_objects = load_result_objects('../results/trans_e/proper_split')
+def plot(with_kg_triples=False, standard_corruption=True):
+    result_objects = load_result_objects('../results/trans_e/removing_movies_only')
 
     # First without any KG triples
     for group, objects in list(result_objects.items()):
         result_objects[group] = (
             [obj for obj in objects if obj['with_kg_triples']] if with_kg_triples else
             [obj for obj in objects if not obj['with_kg_triples']])
+        result_objects[group] = (
+            [obj for obj in objects if obj['standard_corruption']] if standard_corruption else
+            [obj for obj in objects if not obj['standard_corruption']])
 
     grouped_models = {}
     for group, objects in result_objects.items():
@@ -81,7 +84,19 @@ def plot(with_kg_triples=False):
     plt.grid()
     plt.show()
 
+    # ------------- VAL DCG ----------
+    for movie_entity_ratio, (train_loss, val_hitrate, val_dcg) in avg_models.items():
+        plt.plot(val_dcg, label=f'{movie_entity_ratio} movie ratings')
+    plt.title(
+        f'DCG@10 at varying dataset compositions {"(with KG triples)" if with_kg_triples else ("(no KG triples)")}')
+    plt.ylabel('DCG@10')
+    plt.xlabel('Epochs')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
 
 if __name__ == '__main__':
-    plot(with_kg_triples=False)
-    plot(with_kg_triples=True)
+    plot(with_kg_triples=False, standard_corruption=True)
+    plot(with_kg_triples=True, standard_corruption=True)
+    plot(with_kg_triples=True, standard_corruption=False)

@@ -168,15 +168,18 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
 
 
 if __name__ == '__main__':
+
+    SAVE_DIR = '../results/trans_e/removing_movies_only'
+
     for random_seed in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
         configs = [
             # Standard corruption, no KG
 
             # [N_EPOCHS, MOVIE_RATIO, ALL_RATIO, STANDARD_CORRUPTION, WITH_KG_TRIPLES]
             # [100, 4, 4, True, False],
-            # [100, 3, 4, True, False],
-            # [100, 2, 4, True, False],
-            # [100, 1, 4, True, False],
+            [100, 3, 4, True, False],
+            [100, 2, 4, True, False],
+            [100, 1, 4, True, False],
             #
             # # Custom corruption, no KG
             # [100, 4, 4, False, False],
@@ -185,24 +188,18 @@ if __name__ == '__main__':
             # [100, 1, 4, False, False],
 
             # Standard corruption, with KG
-            # [100, 4, 4, True, True],
-            # [100, 3, 4, True, True],
-            # [100, 2, 4, True, True],
-            # [100, 1, 4, True, True],
+            [100, 4, 4, True, True],
+            [100, 3, 4, True, True],
+            [100, 2, 4, True, True],
+            [100, 1, 4, True, True],
 
             # Custom corruption, with KG
-            [100, 4, 4, False, True],
-            [100, 3, 4, False, True],
-            [100, 2, 4, False, True],
-            [100, 1, 4, False, True],
+            # [100, 4, 4, False, True],
+            # [100, 3, 4, False, True],
+            # [100, 2, 4, False, True],
+            # [100, 1, 4, False, True],
         ]
         for n_epochs, movie_ratio, all_ratio, standard_corruption, with_kg_triples in configs:
-            # Training configuration
-            # n_epochs = 100
-            # movie_ratio = 4
-            # all_ratio = 4
-            # standard_corruption = True
-            # with_kg_triples = False
 
             training_loss_history = []
 
@@ -216,7 +213,7 @@ if __name__ == '__main__':
 
             data_loader = DesignatedDataLoader.load_from(
                 path='../data_loading/mindreader',
-                movies_only=False,
+                movies_only=True,
                 min_num_entity_ratings=5,
                 filter_unknowns=True,
                 unify_user_indices=True
@@ -229,7 +226,7 @@ if __name__ == '__main__':
             train, validation, test = data_loader.make(
                 movie_to_entity_ratio=movie_ratio / all_ratio,
                 n_negative_samples=99,
-                replace_movies_with_descriptive_entities=True
+                replace_movies_with_descriptive_entities=False
             )
 
             # Hyper parameters
@@ -292,10 +289,12 @@ if __name__ == '__main__':
                     }
                 }
 
-                if not os.path.exists(f'../results/trans_e/user_seed/{random_seed}'):
-                    os.makedirs(f'../results/trans_e/user_seed/{random_seed}')
+                save_dir = os.path.join(SAVE_DIR, str(random_seed))
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
 
-                with open(f'../results/trans_e/user_seed/{random_seed}/{file_name}', 'w') as fp:
+                save_path = os.path.join(save_dir, file_name)
+                with open(save_path, 'w') as fp:
                     json.dump(to_save, fp, indent=True)
 
 
