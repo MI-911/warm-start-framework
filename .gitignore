@@ -7,3 +7,5 @@ venv
 *.json
 *.pyc
 new/
+
+notebooks/bpr.ipynb~

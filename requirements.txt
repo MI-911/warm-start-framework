@@ -1,6 +1,5 @@
 requests
 pandas
-tqdm
 numpy
 torch
 matplotlib
@@ -8,3 +7,5 @@ seaborn
 tqdm
 networkx
 loguru
+sklearn
+scikit-optimize

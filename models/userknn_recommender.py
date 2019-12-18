@@ -2,14 +2,15 @@ from models.base_recommender import RecommenderBase
 import numpy as np
 
 
-class RandomRecommender(RecommenderBase):
+class UserKNNRecommender(RecommenderBase):
     def __init__(self):
-        super(RandomRecommender, self).__init__(None)
+        super().__init__()
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
+        # Try varying sizes of k
+        # Try varying shrink values
+
         return
 
     def predict(self, user, items):
-        # Assign a random score to every item
-        scores = np.random.rand(len(items))
-        return {i: s for i, s in zip(items, scores)}
+        return
