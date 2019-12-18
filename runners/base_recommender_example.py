@@ -27,7 +27,6 @@ if __name__ == '__main__':
 
             for u, (pos_sample, neg_samples) in te:
                 scores = recommender.predict(u, neg_samples + [pos_sample])
-                predicted_rank = scores[pos_sample]
 
                 for k in range(50):
                     # Calculate Hit@k for predicted_rank
