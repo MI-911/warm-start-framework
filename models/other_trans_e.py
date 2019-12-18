@@ -99,9 +99,10 @@ class TransE(nn.Module):
         # Calculate similarity to all movie embeddings
         movie_embeddings = self.entity_embeddings(movie_indices)
         similarities = tt.norm(prediction_vector - movie_embeddings, p=2, dim=1)
-        # similarities = movie_embeddings @ prediction_vector
 
-        return zip(movie_indices, similarities)
+        score_dict = {m: s for m, s in zip(movie_indices, similarities)}
+
+        return score_dict
 
     def fast_rank(self, u_idx, relation_idx, pos_sample, neg_samples):
         u_idx, relation_idx, movie_indices = self.params_to(u_idx, relation_idx, neg_samples + [pos_sample], self.device)

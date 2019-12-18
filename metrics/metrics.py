@@ -20,6 +20,14 @@ def average_precision(ranked_relevancy_list):
     return a_p
 
 
+def dcg(rank, n=10):
+    r = np.zeros(n)
+    if rank < n:
+        r[rank] = 1
+
+    return r[0] + np.sum(r[1:] / np.log2(np.arange(2, r.size + 1)))
+
+
 if __name__ == '__main__':
     is_relevant_1 = np.array([1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
     is_relevant_2 = np.array([1, 0, 1, 0, 0, 0, 0, 0, 0, 0])

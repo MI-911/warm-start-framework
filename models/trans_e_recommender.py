@@ -5,6 +5,7 @@ import numpy as np
 import torch as tt
 import pandas as pd
 import random
+import json
 
 
 def unify_user_indices(ratings, u_idx_start):
@@ -54,7 +55,7 @@ def batchify(pos, neg, batch_size=64):
         yield zip(*pos[i:i + batch_size]), zip(*neg[i:i + batch_size])
 
 
-def evaluate_loss(model, user_ratings, pre_str='Training'):
+def evaluate_loss(model, user_ratings):
     with tt.no_grad():
         model.eval()
 
@@ -62,9 +63,8 @@ def evaluate_loss(model, user_ratings, pre_str='Training'):
         heads, relations, tails = zip(*all_ratings)
 
         loss = model(heads, relations, tails)
-        print(f'[{pre_str}] Mean distance between e(h) + e(r) and e(t): {loss.mean()}')
 
-        return loss
+        return float(loss.mean().cpu().numpy().sum())
 
 
 def dcg(rank, n=10):
@@ -75,7 +75,7 @@ def dcg(rank, n=10):
     return r[0] + np.sum(r[1:] / np.log2(np.arange(2, r.size + 1)))
 
 
-def evaluate_hit(model, user_samples, pre_str, n=10):
+def evaluate_hit(model, user_samples, n=10):
     with tt.no_grad():
         model.eval()
         # Each entry is (user, (pos_sample, neg_samples))
@@ -87,11 +87,10 @@ def evaluate_hit(model, user_samples, pre_str, n=10):
             ranks.append(fast_rank)
             dcgs.append(fast_dcg)
 
-        print(f'[{pre_str}] Mean rank: {np.mean(ranks)}')
-        print(f'[{pre_str}] Hit@10:    {len(np.where(np.array(ranks) < n)[0]) / len(user_samples)}')
-        print(f'[{pre_str}] DCG@10:    {np.mean(dcgs)}')
+        _dcg = np.mean(dcgs)
+        _hit = len(np.where(np.array(ranks) < n)[0]) / len(user_samples)
 
-        return np.mean(ranks), len(np.where(np.array(ranks) < n)[0]) / len(user_samples), np.mean(dcgs)
+        return float(_hit), float(_dcg)
 
 
 def load_kg_triples(e_idx_map):
@@ -178,7 +177,11 @@ class TransERecommender(RecommenderBase):
         self.with_standard_corruption = with_standard_corruption
         self.data_loader = data_loader
 
-    def fit(self, training, validation, max_iterations=100, verbose=True, save_dir=None):
+    def fit(self, training, validation, max_iterations=100, verbose=True, save_to=None):
+        val_hit_history = []
+        val_dcg_history = []
+        training_loss_history = []
+
         # Convert likes/dislikes to relation 1 and 0
         train = convert_ratings(training)
 
@@ -205,6 +208,19 @@ class TransERecommender(RecommenderBase):
             self.data_loader.n_movies + self.data_loader.n_descriptive_entities)
 
         for epoch in range(max_iterations):
+            if epoch % 5 == 0:
+                _loss = evaluate_loss(self.model, train)
+                _hit, _dcg = evaluate_hit(self.model, validation, n=10)
+                training_loss_history.append(_loss)
+                val_hit_history.append(_hit)
+                val_dcg_history.append(_dcg)
+
+                if verbose:
+                    print(f'Epoch {epoch}:')
+                    print(f'    Loss:   {_loss : .3f}')
+                    print(f'    Hit@10: {_hit : .3f}')
+                    print(f'    DCG@10: {_dcg : .3f}')
+
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, user_indices + movie_indices + descriptive_entity_indices)
                 if self.with_standard_corruption else
@@ -227,6 +243,14 @@ class TransERecommender(RecommenderBase):
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
+
+        if save_to is not None:
+            with open(save_to, 'w') as fp:
+                json.dump({
+                    'training_loss': training_loss_history,
+                    'validation_hit_10': val_hit_history,
+                    'validation_dcg_10': val_dcg_history
+                }, fp, indent=True)
 
     def predict(self, user, items):
         # Do the prediction
