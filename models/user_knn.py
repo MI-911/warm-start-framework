@@ -1,16 +1,14 @@
-from tqdm import tqdm
-
 from data_loading.loo_data_loader import DesignatedDataLoader
 from models.base_recommender import RecommenderBase
 import numpy as np
 
 
-class ItemKNN(RecommenderBase):
+class UserKNN(RecommenderBase):
     def __init__(self, data_loader, k=10):
-        super(ItemKNN).__init__()
+        super(UserKNN).__init__()
         self.n_entities = len(data_loader.e_idx_map)
         self.data_loader = data_loader
-        self.entity_vectors = np.zeros((self.n_entities, data_loader.n_users))
+        self.entity_vectors = np.zeros((self.n_entities, data_loader.n_users)).transpose()
         self.user_ratings = {}
         self.k = k
 
@@ -28,7 +26,7 @@ class ItemKNN(RecommenderBase):
         for user, ratings in training:
             self.user_ratings[user] = ratings
             for rating in ratings:
-                self.entity_vectors[rating.e_idx][user] = rating.rating
+                self.entity_vectors[user][rating.e_idx] = rating.rating
 
         hit = 0
         for user, (pos_sample, neg_samples) in validation:
@@ -42,13 +40,13 @@ class ItemKNN(RecommenderBase):
 
         print(hit / len(validation))
 
-    def _cosine_similarity(self, samples, ratings, eps=1e-8):
-        sample_vecs = self.entity_vectors[samples]
-        rating_vecs = self.entity_vectors[ratings]
-        top = np.einsum('ij,kj->ik', sample_vecs, rating_vecs)
-        samples_norm = np.sqrt(np.sum(sample_vecs ** 2, axis=1))
-        entity_norm = np.sqrt(np.sum(rating_vecs ** 2, axis=1))
-        bottom = np.maximum(np.einsum('i,k->ik', samples_norm, entity_norm), eps)
+    def _cosine_similarity(self, user, user_k, eps=1e-8):
+        user_vecs = self.entity_vectors[user]
+        user_sim_vec = self.entity_vectors[user_k]
+        top = np.einsum('i,ji->j', user_vecs, user_sim_vec)
+        samples_norm = np.sqrt(np.sum(user_vecs ** 2, axis=0))
+        entity_norm = np.sqrt(np.sum(user_sim_vec ** 2, axis=1))
+        bottom = np.maximum(samples_norm * entity_norm, eps)
 
         return top / bottom
 
@@ -60,13 +58,15 @@ class ItemKNN(RecommenderBase):
         :return: Dictionary<int, float> - A mapping from item indices to their score.
         """
 
-        rating_idx = [rating.e_idx for rating in self.user_ratings[user]]
-        ratings = [rating.rating for rating in self.user_ratings[user]]
-        cs = self._cosine_similarity(items, rating_idx)
         score = {}
-        for index, similarities in enumerate(cs):
-            topk = sorted([(r, s) for r, s in zip(ratings, similarities)], key=lambda x: x[1], reverse=True)[:self.k]
-            score[items[index]] = np.einsum('i,i->', *zip(*topk))
+
+        for item in items:
+            related = np.where(self.entity_vectors[:, item] != 0)[0]
+            cs = self._cosine_similarity(user, related)
+
+            topk = sorted([(r, s) for r, s in zip(related, cs)], key=lambda x: x[1], reverse=True)[:self.k]
+            ratings = [(self.entity_vectors[i][item], sim) for i, sim in topk]
+            score[item] = np.einsum('i,i->', *zip(*ratings))
 
         # A high score means item knn is sure in a positive prediction.
         return score
@@ -84,12 +84,12 @@ if __name__ == '__main__':
     replace_movies_with_descriptive_entities = True
 
     tra, val, te = data_loader.make(
-        movie_to_entity_ratio=4/4,
+        movie_to_entity_ratio=2/4,
         replace_movies_with_descriptive_entities=replace_movies_with_descriptive_entities,
         n_negative_samples=100,
         keep_all_ratings=False
     )
 
-    knn = ItemKNN(data_loader)
+    knn = UserKNN(data_loader)
 
     knn.fit(tra, val)
