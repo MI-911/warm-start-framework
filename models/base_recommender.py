@@ -1,7 +1,7 @@
 
 
 class RecommenderBase:
-    def __init__(self, model):
+    def __init__(self, model=None):
         self.model = model
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):

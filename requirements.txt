@@ -2,6 +2,9 @@ requests
 pandas
 tqdm
 numpy
-#torch
+torch
 matplotlib
 seaborn
+tqdm
+networkx
+loguru
