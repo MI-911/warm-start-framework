@@ -1,14 +1,13 @@
 from data_loading.loo_data_loader import DesignatedDataLoader
+from models.base_knn import BaseKNN
 from models.base_recommender import RecommenderBase
 import numpy as np
 
 
-class UserKNN(RecommenderBase):
+class UserKNN(BaseKNN):
     def __init__(self, data_loader):
-        super(UserKNN).__init__()
-        self.n_entities = len(data_loader.e_idx_map)
-        self.data_loader = data_loader
-        self.entity_vectors = np.zeros((self.n_entities, data_loader.n_users)).transpose()
+        super(UserKNN, self).__init__(data_loader, len(data_loader.e_idx_map), data_loader.n_users)
+        self.mean_centered_ratings = np.zeros((self.data_loader.n_users, ))
         self.user_ratings = {}
         self.k = 1
 
@@ -26,30 +25,50 @@ class UserKNN(RecommenderBase):
         for user, ratings in training:
             self.user_ratings[user] = ratings
             for rating in ratings:
-                self.entity_vectors[user][rating.e_idx] = rating.rating
+                self.plain_entity_vectors[user][rating.e_idx] = rating.rating
 
-        hit_k = {}
-        for k in range(1, max_iterations):
-            self.k = k
-            hits = 0
-            for user, (pos_sample, neg_samples) in validation:
-                samples = neg_samples + [pos_sample]
-                score = self.predict(user, samples)
+        # Calculate user average.
+        for user, _ in training:
+            self.mean_centered_ratings[user] = np.mean(self.plain_entity_vectors[user])
 
-                score = sorted(score.items(), key=lambda x: x[1], reverse=True)[:10]
-                score = [i for i, _ in score]
-                if pos_sample in score:
-                    hits += 1
+        # Set adjusted vectors
+        for entity in range(self.n_xs):
+            indices = np.where(self.plain_entity_vectors[:, entity] != 0)[0]
+            for user in indices:
+                self.pearson_entity_vectors[user][entity] = self.plain_entity_vectors[user][entity] - self.mean_centered_ratings[user]
 
-            cur_hitrate = hits / len(validation)
-            if verbose:
-                print(f'Hitrate: {cur_hitrate} for k={k}')
+        last_5 = np.array([True, True, True], dtype=np.bool)
+        cur_index = 0
+        best_outer_config = {'metric': 'cosine', 'k': 10, 'hitrate': -1}
+        best_inner_config = {'metric': 'cosine', 'k': 10, 'hitrate': 0}
+        iteration = 0
+        while np.any(last_5) and iteration < max_iterations:
+            iteration += 1
+            cur_configuration = best_inner_config.copy()
+            # Optimize func
+            for func in ['cosine', 'pearson']:
+                cur_configuration['metric'] = func
+                best_inner_config = self._fit_pred(cur_configuration, best_inner_config, validation, verbose)
 
-            hit_k[k] = cur_hitrate
+            cur_configuration = best_inner_config.copy()
 
-        optimal = sorted(hit_k.items(), key=lambda x: x[1])[-1]
-        self.k = optimal[0]
-        print(f'Found optimal number of neighbors to be {self.k} with hitrate {optimal[1]}')
+            # Optimize k
+            best_inner_config = self.optimize_k(cur_configuration, best_inner_config, validation,
+                                                [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55], verbose)
+
+            if best_inner_config['hitrate'] > best_outer_config['hitrate']:
+                best_outer_config = best_inner_config.copy()
+                last_5[cur_index] = True
+                print(f'New best: {best_outer_config}')
+            else:
+                last_5[cur_index] = False
+
+            cur_index = (cur_index + 1) % 3
+
+        self._set_self(best_outer_config)
+
+        if verbose:
+            print(f'Found best configuration: {best_outer_config}')
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
         user_vecs = self.entity_vectors[user]
@@ -60,6 +79,13 @@ class UserKNN(RecommenderBase):
         bottom = np.maximum(samples_norm * entity_norm, eps)
 
         return top / bottom
+
+    def _set_self(self, configuration):
+        self.k = configuration['k']
+        if configuration['metric'] == 'cosine':
+            self.entity_vectors = self.plain_entity_vectors.copy()
+        elif configuration['metric'] == 'pearson':
+            self.entity_vectors = self.pearson_entity_vectors.copy()
 
     def predict(self, user, items):
         """
@@ -73,6 +99,11 @@ class UserKNN(RecommenderBase):
 
         for item in items:
             related = np.where(self.entity_vectors[:, item] != 0)[0]
+
+            if related.size == 0:
+                score[item] = 0
+                continue
+
             cs = self._cosine_similarity(user, related)
 
             topk = sorted([(r, s) for r, s in zip(related, cs)], key=lambda x: x[1], reverse=True)[:self.k]
@@ -95,7 +126,7 @@ if __name__ == '__main__':
     replace_movies_with_descriptive_entities = True
 
     tra, val, te = data_loader.make(
-        movie_to_entity_ratio=2/4,
+        movie_to_entity_ratio=1/4,
         replace_movies_with_descriptive_entities=replace_movies_with_descriptive_entities,
         n_negative_samples=100,
         keep_all_ratings=False
