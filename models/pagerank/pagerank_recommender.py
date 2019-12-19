@@ -60,6 +60,10 @@ class PageRankRecommender(RecommenderBase):
         raise NotImplementedError
 
     def _scores(self, alpha, source_nodes, items):
+        items = set(items)
+        if not source_nodes:
+            return {item: 0 for item in items}
+
         scores = pagerank_scipy(self.graph, alpha=alpha, personalization={entity: 1 for entity in source_nodes}).items()
 
         return {item: score for item, score in scores if item in items}
@@ -85,7 +89,7 @@ class PageRankRecommender(RecommenderBase):
             self.user_ratings[user] = ratings
 
         self.graph = self.construct_graph(training)
-        alpha_ranges = np.linspace(0.1, 1, 10)[:-1]
+        alpha_ranges = [0.1, 0.3, 0.5, 0.7, 0.9]
         alpha_hit = dict()
 
         for alpha in alpha_ranges:
