@@ -167,7 +167,7 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
 class TransERecommender(RecommenderBase):
     def __init__(self, n_entities, n_relations, margin, n_latent_factors, learning_rate,
                  with_kg_triples, with_standard_corruption, data_loader):
-        super(TransERecommender, self).__init__(TransE(n_entities, n_relations, margin, n_latent_factors))
+        super(TransERecommender, self).__init__(TransE(n_entities, n_relations if not with_kg_triples else 9, margin, n_latent_factors))
         self.n_entities = n_entities
         self.n_relations = n_relations
         self.margin = margin

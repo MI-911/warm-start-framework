@@ -1,15 +1,15 @@
-from models.randumb import RandomRecommender
+from models.pagerank.joint_pagerank_recommender import JointPageRankRecommender
 from data_loading.loo_data_loader import DesignatedDataLoader
 from metrics.metrics import dcg
 import numpy as np
 import json
 import os
 
-MODEL_NAME = 'random'
+MODEL_NAME = 'joint_pr'
 
 
 def get_rank_of(item, score_dict):
-    sorted_score_dict = sorted(score_dict.items(), key=lambda x: x[1], reverse=False)
+    sorted_score_dict = sorted(score_dict.items(), key=lambda x: x[1], reverse=True)
     for rank, (i, s) in enumerate(sorted_score_dict):
         if i == item:
             return rank
@@ -44,10 +44,12 @@ if __name__ == '__main__':
             keep_all_ratings = False
             with_kg_triples = False
             with_standard_corruption = True
+            only_positive = False
 
             # Generate unique file name from the configuration
             file_name = MODEL_NAME
             file_name += f'_{n}-4'
+            file_name += '_pos_only' if only_positive else '_pos_neg'
             file_name += '.json'
 
             if not os.path.exists(SAVE_DIR):
@@ -62,7 +64,7 @@ if __name__ == '__main__':
                 keep_all_ratings=keep_all_ratings
             )
 
-            recommender = RandomRecommender()
+            recommender = JointPageRankRecommender(only_positive=only_positive, data_loader=data_loader)
 
             print(f'Fitting {file_name} at run {run}...')
 
