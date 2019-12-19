@@ -42,20 +42,23 @@ class DesignatedDataLoader(DataLoader):
             # Set the random generator for this user
             self.random = random.Random(self.random_seed + u + int(100 * movie_to_entity_ratio))
 
-            # All positive samples must have at least one appearance in the training set
+            # All positive samples must have at least twice appearance in the training set
             available_movies = [m for m, count in movie_counts.items() if count > 1]
             liked_movie_ratings = [
                 r for r in self.ratings  # All ratings in the dataset (not necessarily in this training set)
                 if r.is_movie_rating     # It's a movie
                 and r.rating == 1        # It's a liked movie
-                and r.e_idx in available_movies  # It appears at least once in the training set
+                and r.e_idx in available_movies  # It appears at least twice in the training set
                 and r.u_idx == u]        # It's rated by this user
 
             if len(liked_movie_ratings) < 2:
                 continue  # We need at least two liked movies for every user
 
             # Randomly sample the positive samples and remove them from the training ratings
-            val_pos_sample, test_pos_sample = self.random.sample(liked_movie_ratings, 2)
+            val_pos_sample = self.random.choice(liked_movie_ratings)
+            liked_movie_ratings.remove(val_pos_sample)
+            test_pos_sample = self.random.choice(liked_movie_ratings)
+            liked_movie_ratings.remove(test_pos_sample)
 
             # If these movies appear in this user's training set, remove them
             if val_pos_sample in ratings:
@@ -115,6 +118,25 @@ class DesignatedDataLoader(DataLoader):
                 assert neg_sample in movie_counts and movie_counts[neg_sample] > 0
                 assert neg_sample in self.movie_indices
 
+        # Verify the same thing but in a different way
+        tra_ratings = []
+        val_ratings = []
+        tes_ratings = []
+
+        for u, ratings in train:
+            for r in ratings:
+                tra_ratings.append(r.e_idx)
+        for u, (pos, negs) in validation:
+            for r in [pos] + negs:
+                val_ratings.append(r)
+        for u, (pos, negs) in test:
+            for r in [pos] + negs:
+                tes_ratings.append(r)
+        for r in val_ratings:
+            assert r in tra_ratings
+        for r in tes_ratings:
+            assert r in tra_ratings
+
         # Verify that no positive samples occur in the negative samples
         print(f'Asserting positive samples do not occur in negative samples...')
         for u, (pos_sample, neg_samples) in validation:
@@ -125,6 +147,8 @@ class DesignatedDataLoader(DataLoader):
 
         assert len(train) == len(validation)
         assert len(validation) == len(test)
+
+        # Verify that all negative samples appear in the training set
 
         print(f'Returning a dataset over {len(train)} users.')
 
@@ -139,6 +163,7 @@ class DesignatedDataLoader(DataLoader):
         all_movies = set([m for m, count in movie_counts.items() if count > 0])
         unseen_movies = list(all_movies - seen_movies)
         self.random.shuffle(unseen_movies)
+
         return unseen_movies[:n]
 
     def sample(self, user, ratings, liked_movie_ratings, n_negative_samples, r, movie_counts):

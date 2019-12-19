@@ -20,11 +20,11 @@ class BPRRecommender(RecommenderBase):
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         parameters = {
-            'reg': [0.001, 0.002],
-            'learning_rate': [0.15, 0.175],
+            'reg': [0.001],
+            'learning_rate': [0.1, 0.15],
             'n_iters': [200, 250],
-            'n_factors': [1],
-            'batch_size': [16, 32]
+            'n_factors': [1, 2],
+            'batch_size': [8, 16]
         }
 
         results = list()

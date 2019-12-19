@@ -1,13 +1,15 @@
-from models.trans_e_recommender import TransERecommender
+from models.bpr_recommender import BPRRecommender
 from data_loading.loo_data_loader import DesignatedDataLoader
 from metrics.metrics import dcg
 import numpy as np
 import json
 import os
 
+MODEL_NAME = 'bpr'
+
 
 def get_rank_of(item, score_dict):
-    sorted_score_dict = sorted(score_dict.items(), key=lambda x: x[1], reverse=False)
+    sorted_score_dict = sorted(score_dict.items(), key=lambda x: x[1], reverse=True)
     for rank, (i, s) in enumerate(sorted_score_dict):
         if i == item:
             return rank
@@ -20,7 +22,7 @@ if __name__ == '__main__':
             path='../data_loading/mindreader',
             min_num_entity_ratings=5,
             movies_only=False,
-            unify_user_indices=True
+            unify_user_indices=False
         )
 
         # Result files are stored with the following naming convention:
@@ -33,23 +35,19 @@ if __name__ == '__main__':
 
         data_loader.random_seed = run
 
-        SAVE_DIR = os.path.join('../results/trans_e', str(run))
-        TRAINING_SAVE_DIR = os.path.join('../results/trans_e/training', str(run))
+        SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}', str(run))
+        TRAINING_SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}/training', str(run))
 
         for n in [4, 3, 2, 1]:
             replace_movies_with_descriptive_entities = True
             n_negative_samples = 100
             keep_all_ratings = False
-            with_kg_triples = True
+            with_kg_triples = False
             with_standard_corruption = True
 
             # Generate unique file name from the configuration
-            file_name = f'trans_e'
+            file_name = MODEL_NAME
             file_name += f'_{n}-4'
-            file_name += '_SUB' if replace_movies_with_descriptive_entities else '_NOSUB'
-            file_name += '_KEEP_ALL' if keep_all_ratings else ''
-            file_name += '_WKG' if with_kg_triples else '_NKG'
-            file_name += '_SC' if with_standard_corruption else '_CC'
             file_name += '.json'
 
             if not os.path.exists(SAVE_DIR):
@@ -64,16 +62,7 @@ if __name__ == '__main__':
                 keep_all_ratings=keep_all_ratings
             )
 
-            recommender = TransERecommender(
-                n_entities=data_loader.n_descriptive_entities + data_loader.n_users + data_loader.n_movies,
-                n_relations=2,
-                margin=1,
-                n_latent_factors=50,
-                learning_rate=0.003,
-                with_kg_triples=with_kg_triples,
-                with_standard_corruption=with_standard_corruption,
-                data_loader=data_loader
-            )
+            recommender = BPRRecommender()
 
             print(f'Fitting {file_name} at run {run}...')
 

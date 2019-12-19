@@ -23,7 +23,7 @@ def get_model_choice():
 
 def get_model_qualifier(model):
     dir = os.path.join(BASE_DIR, model)
-    runs = os.listdir(dir)
+    runs = [run for run in os.listdir(dir) if not run == 'training']
 
     assert len(runs) > 0, f'Found no runs for {model}'
 
@@ -40,6 +40,10 @@ def get_model_qualifier(model):
         choice = input('Enter the model qualifier: ')
 
     return choice + '.json'
+
+
+def to_latex(value, std):
+    return f'${value : .3f} \\pm {std :.3f}$'
 
 
 def load_model_results(model):
@@ -62,7 +66,7 @@ def load_model_results(model):
     print(f'At which k(s) do you want Hit@k and DCG@k?')
     ks = input('Enter k (separate with space if more than one): ')
     ks = map(int, [k for k in ks.split()])
-    print(f'Performance results for {model}:')
+    print(f'Performance results for {qualifier}:')
     for k in ks:
         k -= 1
         hit_at_k = np.mean(hits_at_k[k])
@@ -70,8 +74,8 @@ def load_model_results(model):
         dcg_at_k = np.mean(dcgs_at_k[k])
         dcg_std_dev = np.std(dcgs_at_k[k])
         print(f'    ---------------------')
-        print(f'    Hit@{k + 1}: {hit_at_k : .3f} (+- {hit_std_dev : .3f})')
-        print(f'    DCG@{k + 1}: {dcg_at_k : .3f} (+- {dcg_std_dev : .3f})')
+        print(f'    Hit@{k + 1}: {hit_at_k : .3f} (+- {hit_std_dev : .3f})  - {to_latex(hit_at_k, hit_std_dev)}')
+        print(f'    DCG@{k + 1}: {dcg_at_k : .3f} (+- {dcg_std_dev : .3f})  - {to_latex(dcg_at_k, dcg_std_dev)}')
 
 
 if __name__ == '__main__':
