@@ -4,7 +4,8 @@ import operator
 from loguru import logger
 
 from models.base_recommender import RecommenderBase
-from models.bpr import BPR, csr
+from models.bpr import BPR
+from utility.utility import csr
 
 
 def get_combinations(parameters):

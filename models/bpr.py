@@ -3,26 +3,8 @@ import sys
 from itertools import islice
 
 import numpy as np
-from scipy.sparse import csr_matrix
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
-
-
-def csr(train, only_positive=False, implicit=False):
-    all_ratings = []
-    users = []
-    items = []
-
-    for user, ratings in train:
-        for rating in ratings:
-            if only_positive and rating.rating != 1:
-                continue
-
-            all_ratings.append(1 if implicit else rating.rating)
-            users.append(user)
-            items.append(rating.e_idx)
-
-    return csr_matrix((all_ratings, (users, items)))
 
 
 class BPR:
