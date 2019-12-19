@@ -4,13 +4,13 @@ import numpy as np
 
 
 class UserKNN(RecommenderBase):
-    def __init__(self, data_loader, k=10):
+    def __init__(self, data_loader):
         super(UserKNN).__init__()
         self.n_entities = len(data_loader.e_idx_map)
         self.data_loader = data_loader
         self.entity_vectors = np.zeros((self.n_entities, data_loader.n_users)).transpose()
         self.user_ratings = {}
-        self.k = k
+        self.k = 1
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         """
@@ -28,17 +28,28 @@ class UserKNN(RecommenderBase):
             for rating in ratings:
                 self.entity_vectors[user][rating.e_idx] = rating.rating
 
-        hit = 0
-        for user, (pos_sample, neg_samples) in validation:
-            samples = neg_samples + [pos_sample]
-            score = self.predict(user, samples)
+        hit_k = {}
+        for k in range(1, max_iterations):
+            self.k = k
+            hits = 0
+            for user, (pos_sample, neg_samples) in validation:
+                samples = neg_samples + [pos_sample]
+                score = self.predict(user, samples)
 
-            score = sorted(score.items(), key=lambda x: x[1], reverse=True)[:10]
-            score = [i for i, _ in score]
-            if pos_sample in score:
-                hit += 1
+                score = sorted(score.items(), key=lambda x: x[1], reverse=True)[:10]
+                score = [i for i, _ in score]
+                if pos_sample in score:
+                    hits += 1
 
-        print(hit / len(validation))
+            cur_hitrate = hits / len(validation)
+            if verbose:
+                print(f'Hitrate: {cur_hitrate} for k={k}')
+
+            hit_k[k] = cur_hitrate
+
+        optimal = sorted(hit_k.items(), key=lambda x: x[1])[-1]
+        self.k = optimal[0]
+        print(f'Found optimal number of neighbors to be {self.k} with hitrate {optimal[1]}')
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
         user_vecs = self.entity_vectors[user]
