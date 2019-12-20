@@ -1,11 +1,9 @@
-from models.item_knn import ItemKNN
+from models.bpr_recommender import BPRRecommender
 from data_loading.loo_data_loader import DesignatedDataLoader
 from metrics.metrics import dcg
 import numpy as np
 import json
 import os
-
-MODEL_NAME = 'item_knn'
 
 
 def get_rank_of(item, score_dict):
@@ -15,11 +13,11 @@ def get_rank_of(item, score_dict):
             return rank
 
 
-if __name__ == '__main__':
+def run(save_dir, model_name):
 
     for run in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
         data_loader = DesignatedDataLoader.load_from(
-            path='../data_loading/mindreader',
+            path='../../data_loading/mindreader',
             min_num_entity_ratings=5,
             movies_only=False,
             unify_user_indices=False
@@ -35,8 +33,8 @@ if __name__ == '__main__':
 
         data_loader.random_seed = run
 
-        SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}', str(run))
-        TRAINING_SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}/training', str(run))
+        SAVE_DIR = os.path.join(f'../{save_dir}/{model_name}', str(run))
+        TRAINING_SAVE_DIR = os.path.join(f'../{save_dir}/{model_name}/training', str(run))
 
         for n in [4, 3, 2, 1]:
             replace_movies_with_descriptive_entities = True
@@ -46,7 +44,7 @@ if __name__ == '__main__':
             with_standard_corruption = True
 
             # Generate unique file name from the configuration
-            file_name = MODEL_NAME
+            file_name = model_name
             file_name += f'_{n}-4'
             file_name += '.json'
 
@@ -62,7 +60,7 @@ if __name__ == '__main__':
                 keep_all_ratings=keep_all_ratings
             )
 
-            recommender = ItemKNN(data_loader=data_loader)
+            recommender = BPRRecommender()
 
             print(f'Fitting {file_name} at run {run}...')
 

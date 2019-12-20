@@ -1,19 +1,20 @@
 """
-Vanilla Matrix Factorization.
+Joint Matrix Factorization
 """
 
 import torch as tt
 from torch import nn
 
 
-class MF(nn.Module):
+class JointMF(nn.Module):
     def __init__(self, user_count, item_count, latent_factors):
-        super(MF, self).__init__()
+        super(JointMF, self).__init__()
         self.n_users = user_count
         self.n_items = item_count
 
         self.users = nn.Embedding(user_count, latent_factors)
         self.items = nn.Embedding(item_count, latent_factors)
+        self.contexts = nn.Embedding(item_count, latent_factors)
 
         self.device = tt.device('cuda:0') if tt.cuda.is_available() else tt.device('cpu')
 
@@ -24,12 +25,15 @@ class MF(nn.Module):
     def params_to(self, a, b, c):
         return tt.tensor(a).to(self.device), tt.tensor(b).to(self.device), tt.tensor(c).to(self.device)
 
-    def forward(self, user_id, item_id, rating):
-        user_id, item_id, rating = self.params_to(user_id, item_id, rating)
-        predictions = (self.users(user_id) * self.items(item_id)).sum(dim=1)
-
-        return tt.sqrt((rating - predictions).pow(2)).sum()
-        return self.loss_fn(rating, predictions)
+    def forward(self, user_id, item_id, rating, is_rating=False):
+        if is_rating:
+            user_id, item_id, rating = self.params_to(user_id, item_id, rating)
+            predictions = (self.users(user_id) * self.items(item_id)).sum(dim=1)
+            return self.loss_fn(rating, predictions)
+        else:
+            item_id, context_id, sppmi = self.params_to(user_id, item_id, rating)
+            predictions = (self.items(item_id) * self.contexts(context_id)).sum(dim=1)
+            return self.loss_fn(sppmi, predictions)
 
     def predict(self, user_id, item_indices=None):
         if item_indices is None:

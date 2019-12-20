@@ -1,11 +1,9 @@
-from models.svd_recommender import SVDRecommender
+from models.joint_mf_recommender import JointMatrixFactorisationRecommender
 from data_loading.loo_data_loader import DesignatedDataLoader
 from metrics.metrics import dcg
 import numpy as np
 import json
 import os
-
-MODEL_NAME = 'svd'
 
 
 def get_rank_of(item, score_dict):
@@ -15,7 +13,7 @@ def get_rank_of(item, score_dict):
             return rank
 
 
-if __name__ == '__main__':
+def run(save_dir, model_name):
 
     for run in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
         data_loader = DesignatedDataLoader.load_from(
@@ -35,8 +33,8 @@ if __name__ == '__main__':
 
         data_loader.random_seed = run
 
-        SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}', str(run))
-        TRAINING_SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}/training', str(run))
+        SAVE_DIR = os.path.join(f'../{save_dir}/{model_name}', str(run))
+        TRAINING_SAVE_DIR = os.path.join(f'../{save_dir}/{model_name}/training', str(run))
 
         for n in [4, 3, 2, 1]:
             replace_movies_with_descriptive_entities = True
@@ -47,9 +45,8 @@ if __name__ == '__main__':
             only_positive = False
 
             # Generate unique file name from the configuration
-            file_name = MODEL_NAME
+            file_name = model_name
             file_name += f'_{n}-4'
-            file_name += '_pos_only' if only_positive else '_pos_neg'
             file_name += '.json'
 
             if not os.path.exists(SAVE_DIR):
@@ -64,7 +61,7 @@ if __name__ == '__main__':
                 keep_all_ratings=keep_all_ratings
             )
 
-            recommender = SVDRecommender()
+            recommender = JointMatrixFactorisationRecommender(data_loader=data_loader)
 
             print(f'Fitting {file_name} at run {run}...')
 

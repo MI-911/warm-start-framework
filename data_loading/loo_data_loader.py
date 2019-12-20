@@ -52,7 +52,9 @@ class DesignatedDataLoader(DataLoader):
                 and r.u_idx == u]        # It's rated by this user
 
             if len(liked_movie_ratings) < 2:
-                continue  # We need at least two liked movies for every user
+                # Just add their ratings to the training set, we cannot create a val/test set for this user.
+                train.append((u, ratings))
+                continue
 
             # Randomly sample the positive samples and remove them from the training ratings
             val_pos_sample = self.random.choice(liked_movie_ratings)
@@ -94,14 +96,6 @@ class DesignatedDataLoader(DataLoader):
             assert pos_sample not in train_movies
             assert pos_sample in self.movie_indices
 
-        for (u, (pos_sample, neg_samples)), (u_, ratings) in zip(validation, train):
-            assert u == u_
-            assert pos_sample not in [r.e_idx for r in ratings]
-
-        for (u, (pos_sample, neg_samples)), (u_, ratings) in zip(test, train):
-            assert u == u_
-            assert pos_sample not in [r.e_idx for r in ratings]
-
         # Verify that all negative samples occur at least once in the training set
         print(f'Asserting negative samples occurrence in training set, but not rated for each user...')
         for u, (pos_sample, neg_samples) in validation:
@@ -118,7 +112,7 @@ class DesignatedDataLoader(DataLoader):
                 assert neg_sample in movie_counts and movie_counts[neg_sample] > 0
                 assert neg_sample in self.movie_indices
 
-        # Verify the same thing but in a different way
+        # Same shit, different algo
         tra_ratings = []
         val_ratings = []
         tes_ratings = []
@@ -126,12 +120,15 @@ class DesignatedDataLoader(DataLoader):
         for u, ratings in train:
             for r in ratings:
                 tra_ratings.append(r.e_idx)
+
         for u, (pos, negs) in validation:
             for r in [pos] + negs:
                 val_ratings.append(r)
+
         for u, (pos, negs) in test:
             for r in [pos] + negs:
                 tes_ratings.append(r)
+
         for r in val_ratings:
             assert r in tra_ratings
         for r in tes_ratings:
@@ -145,7 +142,6 @@ class DesignatedDataLoader(DataLoader):
         for u, (pos_sample, neg_samples) in test:
             assert pos_sample not in neg_samples
 
-        assert len(train) == len(validation)
         assert len(validation) == len(test)
 
         # Verify that all negative samples appear in the training set

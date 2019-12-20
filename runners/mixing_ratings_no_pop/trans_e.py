@@ -1,28 +1,26 @@
-from models.user_knn import UserKNN
+from models.trans_e_recommender import TransERecommender
 from data_loading.loo_data_loader import DesignatedDataLoader
 from metrics.metrics import dcg
 import numpy as np
 import json
 import os
 
-MODEL_NAME = 'user_knn'
-
 
 def get_rank_of(item, score_dict):
-    sorted_score_dict = sorted(score_dict.items(), key=lambda x: x[1], reverse=True)
+    sorted_score_dict = sorted(score_dict.items(), key=lambda x: x[1], reverse=False)
     for rank, (i, s) in enumerate(sorted_score_dict):
         if i == item:
             return rank
 
 
-if __name__ == '__main__':
-
+def run(save_dir, model_name):
     for run in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
         data_loader = DesignatedDataLoader.load_from(
-            path='../data_loading/mindreader',
+            path='../../data_loading/mindreader',
             min_num_entity_ratings=5,
             movies_only=False,
-            unify_user_indices=False
+            unify_user_indices=True,
+            remove_top_k_percent=2
         )
 
         # Result files are stored with the following naming convention:
@@ -35,8 +33,8 @@ if __name__ == '__main__':
 
         data_loader.random_seed = run
 
-        SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}', str(run))
-        TRAINING_SAVE_DIR = os.path.join(f'../results/{MODEL_NAME}/training', str(run))
+        SAVE_DIR = os.path.join(f'../{save_dir}/{model_name}', str(run))
+        TRAINING_SAVE_DIR = os.path.join(f'../{save_dir}/{model_name}/training', str(run))
 
         for n in [4, 3, 2, 1]:
             replace_movies_with_descriptive_entities = True
@@ -46,8 +44,12 @@ if __name__ == '__main__':
             with_standard_corruption = True
 
             # Generate unique file name from the configuration
-            file_name = MODEL_NAME
+            file_name = f'{model_name}'
             file_name += f'_{n}-4'
+            file_name += '_SUB' if replace_movies_with_descriptive_entities else '_NOSUB'
+            file_name += '_KEEP_ALL' if keep_all_ratings else ''
+            file_name += '_WKG' if with_kg_triples else '_NKG'
+            file_name += '_SC' if with_standard_corruption else '_CC'
             file_name += '.json'
 
             if not os.path.exists(SAVE_DIR):
@@ -56,38 +58,22 @@ if __name__ == '__main__':
                 os.makedirs(TRAINING_SAVE_DIR)
 
             tra, val, te = data_loader.make(
-                movie_to_entity_ratio=1/4,
+                movie_to_entity_ratio=n/4,
                 replace_movies_with_descriptive_entities=replace_movies_with_descriptive_entities,
                 n_negative_samples=n_negative_samples,
                 keep_all_ratings=keep_all_ratings
             )
 
-            tra_ratings = []
-            val_ratings = []
-            tes_ratings = []
-
-            for u, ratings in tra:
-                for r in ratings:
-                    tra_ratings.append(r.e_idx)
-
-            for u, (pos, negs) in val:
-                for r in [pos] + negs:
-                    val_ratings.append(r)
-
-            for u, (pos, negs) in te:
-                for r in [pos] + negs:
-                    tes_ratings.append(r)
-
-            for r in val_ratings:
-                if r not in tra_ratings:
-                    print(f'{r} not in training')
-                assert r in tra_ratings
-            for r in tes_ratings:
-                if r not in tra_ratings:
-                    print(f'{r} not in training')
-                assert r in tra_ratings
-
-            recommender = UserKNN(data_loader=data_loader)
+            recommender = TransERecommender(
+                n_entities=data_loader.n_descriptive_entities + data_loader.n_users + data_loader.n_movies,
+                n_relations=2,
+                margin=1,
+                n_latent_factors=50,
+                learning_rate=0.003,
+                with_kg_triples=with_kg_triples,
+                with_standard_corruption=with_standard_corruption,
+                data_loader=data_loader
+            )
 
             print(f'Fitting {file_name} at run {run}...')
 
