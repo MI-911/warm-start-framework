@@ -61,7 +61,8 @@ class Rating:
 
 
 class DataLoader:
-    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices, e_idx_map, backwards_u_map, backwards_e_map):
+    def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices, e_idx_map, backwards_u_map,
+                 backwards_e_map):
         print(f'Init dataloader with {len(ratings)} ratings')
         self.ratings = ratings
         self.n_users = n_users
@@ -78,7 +79,8 @@ class DataLoader:
         self.backwards_e_map = backwards_e_map
 
     @staticmethod
-    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False, remove_top_k_percent=None):
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False,
+                  remove_top_k_percent=None):
         """
         Load rating triples from the provided path.
         :param path: The path to load ratings from. Must include a ratings_clean.json and entities_clean.json.
@@ -89,10 +91,12 @@ class DataLoader:
         :param remove_top_k_percent: (Float) Ignores the top k% popular movies (not entities). Does nothing is None.
         :return: A DataLoader instance.
         """
-        return DataLoader(*DataLoader._load_from(path, filter_unknowns, movies_only, unify_user_indices, remove_top_k_percent))
+        return DataLoader(*DataLoader._load_from(path, filter_unknowns, movies_only, unify_user_indices,
+                                                 remove_top_k_percent))
 
     @staticmethod
-    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False, remove_top_k_percent=None):
+    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False,
+                   remove_top_k_percent=None):
         with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
             ratings = json.load(ratings_p)
         with open(os.path.join(path, 'entities_clean.json')) as entities_p:
