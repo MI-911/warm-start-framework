@@ -12,7 +12,8 @@ class DesignatedDataLoader(DataLoader):
         self.validation = []
         self.test = []
 
-    def make(self, movie_to_entity_ratio=0.5, replace_movies_with_descriptive_entities=True, n_negative_samples=99, keep_all_ratings=False):
+    def make(self, movie_to_entity_ratio=0.5, replace_movies_with_descriptive_entities=True, n_negative_samples=100,
+             keep_all_ratings=False):
         """
         Samples new positive and negative items for every user.
         """
@@ -203,7 +204,8 @@ class DesignatedDataLoader(DataLoader):
         return ratings
 
     @staticmethod
-    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False, remove_top_k_percent=None):
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False,
+                  remove_top_k_percent=None):
         return DesignatedDataLoader(DataLoader._load_from(
             path, filter_unknowns, min_num_entity_ratings, movies_only, unify_user_indices, remove_top_k_percent)
         )
