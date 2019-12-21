@@ -1,5 +1,5 @@
 import random
-from collections import Counter
+from collections import Counter, defaultdict
 from random import shuffle
 
 from data_loading.generic_data_loader import DataLoader
@@ -17,10 +17,8 @@ class DesignatedDataLoader(DataLoader):
         """
         Samples new positive and negative items for every user.
         """
-        u_r_map = {}
+        u_r_map = defaultdict(list)
         for r in self.ratings:
-            if r.u_idx not in u_r_map:
-                u_r_map[r.u_idx] = []
             u_r_map[r.u_idx].append(r)
 
         if not keep_all_ratings:
