@@ -204,11 +204,10 @@ class DesignatedDataLoader(DataLoader):
         return ratings
 
     @staticmethod
-    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False,
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=1, movies_only=False, unify_user_indices=False,
                   remove_top_k_percent=None):
-        return DesignatedDataLoader(DataLoader._load_from(
-            path, filter_unknowns, min_num_entity_ratings, movies_only, unify_user_indices, remove_top_k_percent)
-        )
+        return DesignatedDataLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only,
+                                                          unify_user_indices, remove_top_k_percent))
 
 
 def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=42):

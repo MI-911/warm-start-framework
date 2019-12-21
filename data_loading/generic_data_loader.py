@@ -1,8 +1,8 @@
-import numpy as np
-import pandas as pd
-import os
 import json
+import os
 import random
+
+from loguru import logger
 
 
 def get_label_map(entities):
@@ -18,7 +18,7 @@ def get_label_map(entities):
     return m
 
 
-def remove_unrated_entities(ratings, min_num_ratings=5):
+def remove_unrated_entities(ratings, min_num_ratings=1):
     entity_rating_counts = {}
     for u, e, r in ratings:
         if e not in entity_rating_counts:
@@ -63,7 +63,7 @@ class Rating:
 class DataLoader:
     def __init__(self, ratings, n_users, movie_indices, descriptive_entity_indices, e_idx_map, backwards_u_map,
                  backwards_e_map):
-        print(f'Init dataloader with {len(ratings)} ratings')
+        logger.info(f'Initialized data loader with {len(ratings)} ratings')
         self.ratings = ratings
         self.n_users = n_users
         self.n_movies = len(movie_indices)
@@ -79,7 +79,7 @@ class DataLoader:
         self.backwards_e_map = backwards_e_map
 
     @staticmethod
-    def load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False,
+    def load_from(path, filter_unknowns=True, min_num_entity_ratings=1, movies_only=False, unify_user_indices=False,
                   remove_top_k_percent=None):
         """
         Load rating triples from the provided path.
@@ -95,7 +95,7 @@ class DataLoader:
                                                  remove_top_k_percent))
 
     @staticmethod
-    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=5, movies_only=False, unify_user_indices=False,
+    def _load_from(path, filter_unknowns=True, min_num_entity_ratings=1, movies_only=False, unify_user_indices=False,
                    remove_top_k_percent=None):
         with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
             ratings = json.load(ratings_p)
