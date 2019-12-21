@@ -16,8 +16,12 @@ from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 
 models = {
-    'transe': None,
-    'transe-kg': None,
+    'transe': {
+        'descending': False
+    },
+    'transe-kg': {
+        'descending': False
+    },
     'user-knn': {
         'class': UserKNNRecommender,
         'data_loader': True
@@ -107,6 +111,7 @@ if __name__ == '__main__':
             k = 10
             for u, (pos_sample, neg_samples) in test:
                 predictions = recommender.predict(u, neg_samples + [pos_sample]).items()
+                # TODO: Consider descending parameter for sort order
                 predictions = sorted(predictions, key=lambda item: item[1], reverse=True)[:k]
 
                 relevance = [1 if item == pos_sample else 0 for item, score in predictions]
