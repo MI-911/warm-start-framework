@@ -105,7 +105,7 @@ if __name__ == '__main__':
             logger.info(f'Fitting {model}')
             recommender.fit(train, validation)
 
-            hits = dict()
+            hits = list()
             ndcg_sum = list()
 
             k = 10
