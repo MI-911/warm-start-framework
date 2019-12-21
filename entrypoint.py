@@ -51,12 +51,13 @@ if __name__ == '__main__':
     # Load data
     data_loader = DesignatedDataLoader.load_from(
         path='data_loading/mindreader',
-        movies_only=True,
-        unify_user_indices=False
+        movies_only=False,
+        min_num_entity_ratings=1
     )
 
     train, validation, test = data_loader.make(
-        movie_to_entity_ratio=1
+        movie_to_entity_ratio=0.25,
+        replace_movies_with_descriptive_entities=True
     )
 
     # Run models
