@@ -3,9 +3,9 @@ from models.base_recommender import RecommenderBase
 import numpy as np
 
 
-class ItemKNN(RecommenderBase):
+class ItemKNNRecommender(RecommenderBase):
     def __init__(self, data_loader):
-        super(ItemKNN).__init__()
+        super(ItemKNNRecommender).__init__()
         self.n_entities = len(data_loader.e_idx_map)
         self.data_loader = data_loader
         self.entity_vectors = np.zeros((self.n_entities, data_loader.n_users))
@@ -226,6 +226,6 @@ if __name__ == '__main__':
         keep_all_ratings=False
     )
 
-    knn = ItemKNN(data_loader)
+    knn = ItemKNNRecommender(data_loader)
 
     knn.fit(tra, val)

@@ -1,16 +1,10 @@
-import itertools as it
 import operator
 
 from loguru import logger
 
 from models.base_recommender import RecommenderBase
 from models.bpr import BPR
-from utility.utility import csr
-
-
-def get_combinations(parameters):
-    keys, values = zip(*parameters.items())
-    return [dict(zip(keys, v)) for v in it.product(*values)]
+from utility.utility import csr, get_combinations
 
 
 class BPRRecommender(RecommenderBase):
@@ -22,22 +16,21 @@ class BPRRecommender(RecommenderBase):
         parameters = {
             'reg': [0.001],
             'learning_rate': [0.1, 0.15],
-            'n_iters': [200, 250],
+            'n_iters': [250],
             'n_factors': [1, 2],
-            'batch_size': [8, 16]
+            'batch_size': [16, 32],
+            'only_positive': [True, False]
         }
 
         results = list()
         combinations = get_combinations(parameters)
-        logger.info(f'{len(combinations)} parameters to search')
-
-        self.ratings = csr(training)
+        logger.info(f'{len(combinations)} hyperparameter combinations')
 
         for combination in combinations:
             logger.info(combination)
 
-            self.model = BPR(**combination)
-            self.model.fit(self.ratings)
+            self.model = BPR(training, **combination)
+            self.model.fit()
 
             hits = 0
             count = 0
@@ -58,8 +51,8 @@ class BPRRecommender(RecommenderBase):
         best = sorted(results, key=operator.itemgetter(1), reverse=True)[0]
         logger.info(f'Best: {best}')
 
-        self.model = BPR(**best[0])
-        self.model.fit(self.ratings)
+        self.model = BPR(training, **best[0])
+        self.model.fit()
 
     def predict(self, user, items):
         scores = self.model.predict_user(user)

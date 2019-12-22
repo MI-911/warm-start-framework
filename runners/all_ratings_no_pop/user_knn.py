@@ -1,4 +1,4 @@
-from models.user_knn import UserKNN
+from models.user_knn_recommender import UserKNNRecommender
 from data_loading.loo_data_loader import DesignatedDataLoader
 from metrics.metrics import dcg
 import numpy as np
@@ -58,7 +58,7 @@ def run(save_dir, model_name):
             keep_all_ratings=keep_all_ratings
         )
 
-        recommender = UserKNN(data_loader=data_loader)
+        recommender = UserKNNRecommender(data_loader=data_loader)
 
         print(f'Fitting {file_name} at run {run}...')
 

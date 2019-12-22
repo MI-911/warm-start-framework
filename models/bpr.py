@@ -6,6 +6,8 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
+from utility.utility import csr
+
 
 class BPR:
     """
@@ -52,7 +54,7 @@ class BPR:
     - https://arxiv.org/abs/1205.2618
     """
 
-    def __init__(self, learning_rate=0.01, n_factors=15, n_iters=10,
+    def __init__(self, training, learning_rate=0.01, n_factors=15, n_iters=10, only_positive=False,
                  batch_size=1000, reg=0.01, seed=1234, verbose=True):
         self.reg = reg
         self.seed = seed
@@ -61,20 +63,21 @@ class BPR:
         self.n_factors = n_factors
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.ratings = csr(training, only_positive)
 
         # to avoid re-computation at predict
         self._prediction = None
 
-    def fit(self, ratings):
+    def fit(self):
         """
         Parameters
         ----------
         ratings : scipy sparse csr_matrix, shape [n_users, n_items]
             sparse matrix of user-item interactions
         """
-        indptr = ratings.indptr
-        indices = ratings.indices
-        n_users, n_items = ratings.shape
+        indptr = self.ratings.indptr
+        indices = self.ratings.indices
+        n_users, n_items = self.ratings.shape
 
         # ensure batch size makes sense, since the algorithm involves
         # for each step randomly sample a user, thus the batch size

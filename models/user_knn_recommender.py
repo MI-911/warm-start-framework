@@ -1,12 +1,12 @@
-from data_loading.loo_data_loader import DesignatedDataLoader
-from models.base_knn import BaseKNN
-from models.base_recommender import RecommenderBase
 import numpy as np
 
+from data_loading.loo_data_loader import DesignatedDataLoader
+from models.base_knn import BaseKNN
 
-class UserKNN(BaseKNN):
+
+class UserKNNRecommender(BaseKNN):
     def __init__(self, data_loader):
-        super(UserKNN, self).__init__(data_loader, len(data_loader.e_idx_map), data_loader.n_users)
+        super(UserKNNRecommender, self).__init__(data_loader, len(data_loader.e_idx_map), data_loader.n_users)
         self.mean_centered_ratings = np.zeros((self.data_loader.n_users, ))
         self.user_ratings = {}
         self.k = 1
@@ -129,6 +129,6 @@ if __name__ == '__main__':
         keep_all_ratings=False
     )
 
-    knn = UserKNN(data_loader)
+    knn = UserKNNRecommender(data_loader)
 
     knn.fit(tra, val)
