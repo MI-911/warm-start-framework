@@ -13,10 +13,14 @@ class DesignatedDataLoader(DataLoader):
         self.test = []
 
     def make(self, movie_to_entity_ratio=0.5, replace_movies_with_descriptive_entities=True, n_negative_samples=100,
-             keep_all_ratings=False):
+             keep_all_ratings=False, random_seed=42, movies_only=False, without_top_pop=False):
         """
         Samples new positive and negative items for every user.
         """
+        self.random = random.Random(random_seed)
+        if movies_only:
+            self.ratings = [r for r in self.ratings if r.is_movie_rating]
+
         u_r_map = {}
         for r in self.ratings:
             if r.u_idx not in u_r_map:
@@ -39,12 +43,22 @@ class DesignatedDataLoader(DataLoader):
                     movie_counts[m] = 0
                 movie_counts[m] += 1
 
+        if without_top_pop:
+            top_pop_movies = sorted(movie_counts.items(), key=lambda x: x[1], reverse=True)
+            top_two_percent = int(len(top_pop_movies) * 0.02)
+            top_pop_movies = list(top_pop_movies)[:top_two_percent]
+
+        progress_current = 0
+        progress_max = len(u_r_map)
         for u, ratings in u_r_map.items():
             # Set the random generator for this user
             self.random = random.Random(self.random_seed + u + int(100 * movie_to_entity_ratio))
 
             # All positive samples must have at least twice appearance in the training set
-            available_movies = [m for m, count in movie_counts.items() if count > 1]
+            available_movies = ([m for m, count in movie_counts.items() if count > 1]
+                                if not without_top_pop else
+                                [m for m, count in movie_counts.items() if count > 1
+                                 and m not in top_pop_movies])
             liked_movie_ratings = [
                 r for r in self.ratings  # All ratings in the dataset (not necessarily in this training set)
                 if r.is_movie_rating     # It's a movie
@@ -85,10 +99,14 @@ class DesignatedDataLoader(DataLoader):
             validation.append((u, (val_pos_sample, val_neg_samples)))
             test.append((u, (test_pos_sample, test_neg_samples)))
 
+            progress_current += 1
+
         # Verify that all positive samples are not in a user's train ratings
-        print(f'Asserting positive samples not in training set for each user...')
+        # print(f'Asserting positive samples not in training set for each user...')
+        all_train_movies = []
         for u, (pos_sample, neg_samples) in validation:
             train_movies = [r.e_idx for r in u_r_map[u]]
+            all_train_movies += train_movies
             assert pos_sample not in train_movies
             assert pos_sample in self.movie_indices
 
@@ -97,8 +115,17 @@ class DesignatedDataLoader(DataLoader):
             assert pos_sample not in train_movies
             assert pos_sample in self.movie_indices
 
+        # # Verify that all positive samples have evidence in the training set
+        # all_train_movies = set(all_train_movies)
+        # for u, (pos_sample, neg_samples) in validation:
+        #     assert pos_sample in all_train_movies
+        #
+        # all_train_movies = set(all_train_movies)
+        # for u, (pos_sample, neg_samples) in test:
+        #     assert pos_sample in all_train_movies
+
         # Verify that all negative samples occur at least once in the training set
-        print(f'Asserting negative samples occurrence in training set, but not rated for each user...')
+        # print(f'Asserting negative samples occurrence in training set, but not rated for each user...')
         for u, (pos_sample, neg_samples) in validation:
             user_rated_movies = [r.e_idx for r in u_r_map[u]]
             for neg_sample in neg_samples:
@@ -136,7 +163,7 @@ class DesignatedDataLoader(DataLoader):
             assert r in tra_ratings
 
         # Verify that no positive samples occur in the negative samples
-        print(f'Asserting positive samples do not occur in negative samples...')
+        # print(f'Asserting positive samples do not occur in negative samples...')
         for u, (pos_sample, neg_samples) in validation:
             assert pos_sample not in neg_samples
 
@@ -145,9 +172,7 @@ class DesignatedDataLoader(DataLoader):
 
         assert len(validation) == len(test)
 
-        # Verify that all negative samples appear in the training set
-
-        print(f'Returning a dataset over {len(train)} users.')
+        # print(f'Returning a dataset over {len(train)} users.')
 
         self.train = train
         self.validation = validation
