@@ -1,13 +1,13 @@
-from data_loading.loo_data_loader import DesignatedDataLoader
-from models.base_knn import BaseKNN
-from models.base_recommender import RecommenderBase
 import numpy as np
 
+from data_loading.loo_data_loader import DesignatedDataLoader
+from models.base_knn import BaseKNN
 
-class UserKNN(BaseKNN):
-    def __init__(self, data_loader):
-        super(UserKNN, self).__init__(data_loader, len(data_loader.e_idx_map), data_loader.n_users)
-        self.mean_centered_ratings = np.zeros((self.data_loader.n_users, ))
+
+class UserKNNRecommender(BaseKNN):
+    def __init__(self, split):
+        super(UserKNNRecommender, self).__init__(split, split.n_entities, split.n_users)
+        self.mean_centered_ratings = np.zeros((self.split.n_users, ))
         self.user_ratings = {}
         self.k = 1
 
@@ -37,12 +37,11 @@ class UserKNN(BaseKNN):
             for user in indices:
                 self.pearson_entity_vectors[user][entity] = self.plain_entity_vectors[user][entity] - self.mean_centered_ratings[user]
 
-        last_5 = np.array([True, True, True], dtype=np.bool)
-        cur_index = 0
-        best_outer_config = {'metric': 'cosine', 'k': 10, 'hitrate': -1}
-        best_inner_config = {'metric': 'cosine', 'k': 10, 'hitrate': 0}
+        last_better = True
+        best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1}
+        best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0}
         iteration = 0
-        while np.any(last_5) and iteration < max_iterations:
+        while last_better and iteration < max_iterations:
             iteration += 1
             cur_configuration = best_inner_config.copy()
             # Optimize func
@@ -56,14 +55,11 @@ class UserKNN(BaseKNN):
             best_inner_config = self.optimize_k(cur_configuration, best_inner_config, validation,
                                                 [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55], verbose)
 
-            if best_inner_config['hitrate'] > best_outer_config['hitrate']:
+            if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
                 best_outer_config = best_inner_config.copy()
-                last_5[cur_index] = True
                 print(f'New best: {best_outer_config}')
             else:
-                last_5[cur_index] = False
-
-            cur_index = (cur_index + 1) % 3
+                last_better = False
 
         self._set_self(best_outer_config)
 
@@ -71,10 +67,10 @@ class UserKNN(BaseKNN):
             print(f'Found best configuration: {best_outer_config}')
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
-        user_vecs = self.entity_vectors[user]
+        user_vectors = self.entity_vectors[user]
         user_sim_vec = self.entity_vectors[user_k]
-        top = np.einsum('i,ji->j', user_vecs, user_sim_vec)
-        samples_norm = np.sqrt(np.sum(user_vecs ** 2, axis=0))
+        top = np.einsum('i,ji->j', user_vectors, user_sim_vec)
+        samples_norm = np.sqrt(np.sum(user_vectors ** 2, axis=0))
         entity_norm = np.sqrt(np.sum(user_sim_vec ** 2, axis=1))
         bottom = np.maximum(samples_norm * entity_norm, eps)
 
@@ -106,8 +102,8 @@ class UserKNN(BaseKNN):
 
             cs = self._cosine_similarity(user, related)
 
-            topk = sorted([(r, s) for r, s in zip(related, cs)], key=lambda x: x[1], reverse=True)[:self.k]
-            ratings = [(self.entity_vectors[i][item], sim) for i, sim in topk]
+            top_k = sorted([(r, s) for r, s in zip(related, cs)], key=lambda x: x[1], reverse=True)[:self.k]
+            ratings = [(self.entity_vectors[i][item], sim) for i, sim in top_k]
             score[item] = np.einsum('i,i->', *zip(*ratings))
 
         # A high score means item knn is sure in a positive prediction.
@@ -132,6 +128,6 @@ if __name__ == '__main__':
         keep_all_ratings=False
     )
 
-    knn = UserKNN(data_loader)
+    knn = UserKNNRecommender(data_loader)
 
     knn.fit(tra, val)

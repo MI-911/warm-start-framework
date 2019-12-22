@@ -1,88 +1,143 @@
 import argparse
 import os
+from collections import defaultdict
 
 import numpy as np
 from loguru import logger
 
 from data_loading.loo_data_loader import DesignatedDataLoader
+from experiments.experiment import Experiment, Dataset
 from metrics.metrics import ndcg_at_k
 from models.bpr_recommender import BPRRecommender
+from models.item_knn_recommender import ItemKNNRecommender
+from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
+from models.pagerank.kg_pagerank_recommender import KnowledgeGraphPageRankRecommender
 from models.randumb import RandomRecommender
 from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
+from models.user_knn_recommender import UserKNNRecommender
 
 models = {
-    'transe': None,
-    'transe-kg': None,
-    'user-knn': None,
-    'item-knn': None,
+    'transe': {
+        'descending': False
+    },
+    'transe-kg': {
+        'descending': False
+    },
+    'user-knn': {
+        'class': UserKNNRecommender,
+        'split': True
+    },
+    'item-knn': {
+        'class': ItemKNNRecommender,
+        'split': True
+    },
     'svd': {
-        'constructor': SVDRecommender
+        'class': SVDRecommender
     },
     'bpr': {
-        'constructor': BPRRecommender
+        'class': BPRRecommender
     },
-    'pr-collab': None,
-    'pr-kg': None,
+    'pr-collab': {
+        'class': CollaborativePageRankRecommender
+    },
+    'pr-kg': {
+        'class': KnowledgeGraphPageRankRecommender,
+        'split': True
+    },
     'pr-joint': None,
     'mf': None,
     'joint-mf': None,
     'top-pop': {
-        'constructor': TopPopRecommender
+        'class': TopPopRecommender
     },
     'random': {
-        'constructor': RandomRecommender
+        'class': RandomRecommender
     }
 }
+
+upper_cutoff = 50
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), help='models to include')
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
 
-if __name__ == '__main__':
-    logger.info(f'Working directory: {os.getcwd()}')
 
+def instantiate(parameters, split):
+    if not parameters or 'class' not in parameters:
+        return None
+
+    kwargs = dict()
+    if parameters.get('split', False):
+        kwargs['split'] = split
+
+    return parameters['class'](**kwargs)
+
+
+def test_model(name, model, test, reverse):
+    hits = defaultdict(list)
+    ndcgs = defaultdict(list)
+
+    for u, (pos_sample, neg_samples) in test:
+        predictions = model.predict(u, neg_samples + [pos_sample]).items()
+
+        # Check that the model produced as many predictions as we requested
+        if len(predictions) != len(neg_samples) + 1:
+            logger.error(f'{name} only produced {len(predictions)} prediction scores')
+
+            continue
+
+        predictions = sorted(predictions, key=lambda item: item[1], reverse=reverse)
+        relevance = [1 if item == pos_sample else 0 for item, score in predictions]
+
+        # Append hits and NDCG for various cutoffs
+        for k in range(1, upper_cutoff + 1):
+            cutoff = relevance[:k]
+
+            hits[k].append(1 in cutoff)
+            ndcgs[k].append(ndcg_at_k(cutoff, k))
+
+    # Transform lists to means
+    hr = dict()
+    ndcg = dict()
+
+    for k in range(1, upper_cutoff + 1):
+        hr[k] = np.mean(hits[k])
+        ndcg[k] = np.mean(ndcgs[k])
+
+    return hr, ndcg
+
+
+def run():
     # Filter models
     args = parser.parse_args()
     model_selection = set(models.keys()) if not args.include else set(args.include)
     if args.exclude:
         model_selection = model_selection.difference(set(args.exclude))
 
-    # Load data
-    data_loader = DesignatedDataLoader.load_from(
-        path='data_loading/mindreader',
-        movies_only=False,
-        min_num_entity_ratings=1
-    )
+    dataset = Dataset('data')
+    for experiment in dataset.experiments():
+        for split in experiment.splits():
+            # Run models
+            for model in model_selection:
+                model_parameters = models[model]
+                recommender = instantiate(model_parameters, split)
+                if not recommender:
+                    logger.error(f'No parameters specified for {model}')
 
-    train, validation, test = data_loader.make(
-        movie_to_entity_ratio=0.25,
-        replace_movies_with_descriptive_entities=True
-    )
+                    continue
 
-    # Run models
-    for model in model_selection:
-        recommender = models[model]['constructor']()
+                logger.info(f'Fitting {model}')
+                recommender.fit(split.training, split.validation)
 
-        recommender.fit(train, validation)
+                hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
 
-        hits, count = 0, 0
-        ndcg_sum = list()
+                for k in [1, 5, 10]:
+                    logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')
+                    logger.info(f'{model} NDCG@{k}: {ndcg[k] * 100:.2f}')
 
-        k = 10
-        for u, (pos_sample, neg_samples) in test:
-            predictions = recommender.predict(u, neg_samples + [pos_sample]).items()
-            predictions = sorted(predictions, key=lambda item: item[1], reverse=True)
 
-            relevance = [1 if item == pos_sample else 0 for item, score in predictions]
-            top_k = [item[0] for item in predictions][:k]
+if __name__ == '__main__':
+    logger.info(f'Working directory: {os.getcwd()}')
 
-            if pos_sample in top_k:
-                hits += 1
-
-            ndcg_sum.append(ndcg_at_k(relevance, 10))
-
-            count += 1
-
-        logger.info(f'{model} HR: {hits / count * 100:.2f}')
-        logger.info(f'{model} NDCG: {np.mean(ndcg_sum) * 100:.2f}')
+    run()
