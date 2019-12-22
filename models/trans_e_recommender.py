@@ -93,8 +93,10 @@ def evaluate_hit(model, user_samples, n=10):
         return float(_hit), float(_dcg)
 
 
-def load_kg_triples(e_idx_map):
-    with open('../data_loading/mindreader/triples.csv') as fp:
+def load_kg_triples(split):
+    e_idx_map = split.experiment.dataset.e_idx_map
+
+    with open(split.experiment.dataset.triples_path) as fp:
         df = pd.read_csv(fp)
         triples = [(h, r, t) for h, r, t in df[['head_uri', 'relation', 'tail_uri']].values]
         triples = [(e_idx_map[h], r, e_idx_map[t]) for h, r, t in triples if h in e_idx_map and t in e_idx_map]
@@ -165,9 +167,10 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
 
 
 class TransERecommender(RecommenderBase):
-    def __init__(self, n_entities, n_relations, margin, n_latent_factors, learning_rate,
-                 with_kg_triples, with_standard_corruption, data_loader):
-        super(TransERecommender, self).__init__(TransE(n_entities, n_relations if not with_kg_triples else 9, margin, n_latent_factors))
+    def __init__(self, split, n_entities, n_relations, margin, n_latent_factors, learning_rate,
+                 with_kg_triples, with_standard_corruption):
+        super(TransERecommender, self).__init__(TransE(n_entities, n_relations if not with_kg_triples else 9, margin,
+                                                       n_latent_factors))
         self.n_entities = n_entities
         self.n_relations = n_relations
         self.margin = margin
@@ -175,7 +178,7 @@ class TransERecommender(RecommenderBase):
         self.learning_rate = learning_rate
         self.with_kg_triples = with_kg_triples
         self.with_standard_corruption = with_standard_corruption
-        self.data_loader = data_loader
+        self.split = split
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to=None):
         val_hit_history = []
@@ -186,16 +189,16 @@ class TransERecommender(RecommenderBase):
         train = convert_ratings(training)
 
         # Num entities
-        n_total_entities = self.data_loader.n_users + self.data_loader.n_descriptive_entities + self.data_loader.n_movies
-        n_total_entities_no_users = n_total_entities - self.data_loader.n_users
+        n_total_entities = self.split.n_users + self.split.n_descriptive_entities + self.split.n_movies
+        n_total_entities_no_users = n_total_entities - self.split.n_users
 
         # What indices are for users, movies and entities, respectively?
         user_indices = list(range(n_total_entities_no_users, n_total_entities))
-        movie_indices = self.data_loader.movie_indices
-        descriptive_entity_indices = self.data_loader.descriptive_entity_indices
+        movie_indices = self.split.movie_indices
+        descriptive_entity_indices = self.split.descriptive_entity_indices
 
         # Load KG triples if needed
-        kg_triples, r_idx_map = load_kg_triples(self.data_loader.e_idx_map) if self.with_kg_triples else ([], {})
+        kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})
         self.n_relations += len(r_idx_map)
 
         optimizer = tt.optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -204,8 +207,8 @@ class TransERecommender(RecommenderBase):
         all_train_ratings = flatten_ratings(train)
         ratings_matrix, u_idx_to_matrix_map, e_idx_to_matrix_map = get_like_matrix(
             all_train_ratings,
-            self.data_loader.n_users,
-            self.data_loader.n_movies + self.data_loader.n_descriptive_entities)
+            self.split.n_users,
+            self.split.n_entities)
 
         for epoch in range(max_iterations):
             if epoch % 5 == 0:
