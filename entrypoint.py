@@ -60,7 +60,7 @@ parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), hel
 
 
 def instantiate(parameters, loader):
-    if not dict or 'class' not in parameters:
+    if not parameters or 'class' not in parameters:
         return None
 
     kwargs = dict()
