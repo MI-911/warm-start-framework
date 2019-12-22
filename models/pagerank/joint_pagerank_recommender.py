@@ -3,10 +3,10 @@ from models.pagerank.pagerank_recommender import PageRankRecommender, construct_
 
 
 class JointPageRankRecommender(PageRankRecommender):
-    def __init__(self, data_loader, only_positive=False, triples_path='../data_loading/mindreader/triples.csv'):
+    def __init__(self, split, only_positive=False):
         super().__init__(only_positive)
-        self.triples_path = triples_path
-        self.entity_idx = data_loader.e_idx_map
+        self.triples_path = split.experiment.dataset.triples_path
+        self.entity_idx = split.experiment.dataset.e_idx_map
 
     def construct_graph(self, training):
         base_graph = construct_knowledge_graph(self.triples_path, self.entity_idx)
