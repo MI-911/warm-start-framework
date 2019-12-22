@@ -1,10 +1,12 @@
 import argparse
 import os
+from collections import defaultdict
 
 import numpy as np
 from loguru import logger
 
 from data_loading.loo_data_loader import DesignatedDataLoader
+from experiments.experiment import Experiment, Dataset
 from metrics.metrics import ndcg_at_k
 from models.bpr_recommender import BPRRecommender
 from models.item_knn_recommender import ItemKNNRecommender
@@ -54,6 +56,8 @@ models = {
     }
 }
 
+upper_cutoff = 50
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), help='models to include')
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
@@ -70,55 +74,70 @@ def instantiate(parameters, loader):
     return parameters['class'](**kwargs)
 
 
-if __name__ == '__main__':
-    logger.info(f'Working directory: {os.getcwd()}')
+def test_model(name, model, test, reverse):
+    hits = defaultdict(list)
+    ndcgs = defaultdict(list)
 
+    for u, (pos_sample, neg_samples) in test:
+        predictions = model.predict(u, neg_samples + [pos_sample]).items()
+
+        # Check that the model produced as many predictions as we requested
+        if len(predictions) != len(neg_samples) + 1:
+            logger.error(f'{name} only produced {len(predictions)} prediction scores')
+
+            continue
+
+        predictions = sorted(predictions, key=lambda item: item[1], reverse=reverse)
+        relevance = [1 if item == pos_sample else 0 for item, score in predictions]
+
+        # Append hits and NDCG for various cutoffs
+        for k in range(1, upper_cutoff + 1):
+            cutoff = relevance[:k]
+
+            hits[k].append(1 in cutoff)
+            ndcgs[k].append(ndcg_at_k(cutoff, k))
+
+    # Transform lists to means
+    hr = dict()
+    ndcg = dict()
+
+    for k in range(1, upper_cutoff + 1):
+        hr[k] = np.mean(hits[k])
+        ndcg[k] = np.mean(ndcgs[k])
+
+    return hr, ndcg
+
+
+def run():
     # Filter models
     args = parser.parse_args()
     model_selection = set(models.keys()) if not args.include else set(args.include)
     if args.exclude:
         model_selection = model_selection.difference(set(args.exclude))
 
-    for v in [True, False]:
-        logger.info(f'Movies only: {v}')
+    dataset = Dataset('data')
+    for experiment in dataset.experiments():
+        for split in experiment.splits():
+            # Run models
+            for model in model_selection:
+                model_parameters = models[model]
+                recommender = instantiate(model_parameters, None)
+                if not recommender:
+                    logger.error(f'No parameters specified for {model}')
 
-        # Load data
-        data_loader = DesignatedDataLoader.load_from(
-            path='./data_loading/mindreader',
-            movies_only=v,
-            min_num_entity_ratings=1
-        )
+                    continue
 
-        train, validation, test = data_loader.make(
-            movie_to_entity_ratio=1,
-            keep_all_ratings=True
-        )
+                logger.info(f'Fitting {model}')
+                recommender.fit(split.training, split.validation)
 
-        # Run models
-        for model in model_selection:
-            recommender = instantiate(models[model], data_loader)
-            if not recommender:
-                logger.error(f'No parameters specified for {model}')
+                hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
 
-                continue
+                for k in [1, 5, 10]:
+                    logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')
+                    logger.info(f'{model} NDCG@{k}: {ndcg[k] * 100:.2f}')
 
-            logger.info(f'Fitting {model}')
-            recommender.fit(train, validation)
 
-            hits = list()
-            ndcg_sum = list()
+if __name__ == '__main__':
+    logger.info(f'Working directory: {os.getcwd()}')
 
-            k = 10
-            for u, (pos_sample, neg_samples) in test:
-                predictions = recommender.predict(u, neg_samples + [pos_sample]).items()
-                # TODO: Consider descending parameter for sort order
-                predictions = sorted(predictions, key=lambda item: item[1], reverse=True)[:k]
-
-                relevance = [1 if item == pos_sample else 0 for item, score in predictions]
-                top_k = [item[0] for item in predictions]
-
-                hits.append(pos_sample in top_k)
-                ndcg_sum.append(ndcg_at_k(relevance, 10))
-
-            logger.info(f'{model} HR: {np.mean(hits) * 100:.2f}')
-            logger.info(f'{model} NDCG: {np.mean(ndcg_sum) * 100:.2f}')
+    run()
