@@ -70,12 +70,12 @@ class ItemKNN(RecommenderBase):
 
             self.shrunk_similarity[i] = sim_i_j
 
-        last_5 = np.array([True, True, True], dtype=np.bool)
+        last_better = True
         cur_index = 0
         best_outer_config = {'metric': 'cosine', 'k': 10, 'hitrate': -1, 'use_shrunk': False, 'shrink_factor': 100}
         best_inner_config = {'metric': 'cosine', 'k': 10, 'hitrate': 0, 'use_shrunk': False, 'shrink_factor': 100}
         iteration = 0
-        while np.any(last_5) and iteration < max_iterations:
+        while last_better and iteration < max_iterations:
             iteration += 1
             cur_configuration = best_inner_config.copy()
             # Optimize func
@@ -134,12 +134,9 @@ class ItemKNN(RecommenderBase):
 
             if best_inner_config['hitrate'] > best_outer_config['hitrate']:
                 best_outer_config = best_inner_config.copy()
-                last_5[cur_index] = True
                 print(f'New best: {best_outer_config}')
             else:
-                last_5[cur_index] = False
-
-            cur_index = (cur_index + 1) % 3
+                last_better = False
 
         self.set_self(best_outer_config)
 
