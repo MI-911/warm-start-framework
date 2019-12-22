@@ -26,11 +26,11 @@ models = {
     },
     'user-knn': {
         'class': UserKNNRecommender,
-        'data_loader': True
+        'split': True
     },
     'item-knn': {
         'class': ItemKNNRecommender,
-        'data_loader': True
+        'split': True
     },
     'svd': {
         'class': SVDRecommender
@@ -43,7 +43,7 @@ models = {
     },
     'pr-kg': {
         'class': KnowledgeGraphPageRankRecommender,
-        'data_loader': True
+        'split': True
     },
     'pr-joint': None,
     'mf': None,
@@ -63,13 +63,13 @@ parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), hel
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
 
 
-def instantiate(parameters, loader):
+def instantiate(parameters, split):
     if not parameters or 'class' not in parameters:
         return None
 
     kwargs = dict()
-    if parameters.get('data_loader', False):
-        kwargs['data_loader'] = loader
+    if parameters.get('split', False):
+        kwargs['split'] = split
 
     return parameters['class'](**kwargs)
 
@@ -121,7 +121,7 @@ def run():
             # Run models
             for model in model_selection:
                 model_parameters = models[model]
-                recommender = instantiate(model_parameters, None)
+                recommender = instantiate(model_parameters, split)
                 if not recommender:
                     logger.error(f'No parameters specified for {model}')
 

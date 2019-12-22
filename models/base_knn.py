@@ -3,9 +3,9 @@ import numpy as np
 
 
 class BaseKNN(RecommenderBase):
-    def __init__(self, data_loader, n_xs, n_ys):
+    def __init__(self, split, n_xs, n_ys):
         super(BaseKNN).__init__()
-        self.data_loader = data_loader
+        self.split = split
         self.n_xs = n_xs
         self.n_ys = n_ys
         self.entity_vectors = np.zeros((n_xs, n_ys)).transpose()
@@ -34,10 +34,10 @@ class BaseKNN(RecommenderBase):
             if pos_sample in score:
                 hits += 1
 
-        hitrate = hits / len(validation)
-        cur_config['hitrate'] = hitrate
+        hit_rate = hits / len(validation)
+        cur_config['hit_rate'] = hit_rate
 
-        if best_config['hitrate'] < hitrate:
+        if best_config['hit_rate'] < hit_rate:
             best_config = cur_config.copy()
 
         if verbose:

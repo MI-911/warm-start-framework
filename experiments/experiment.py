@@ -6,8 +6,13 @@ from data_loading.generic_data_loader import Rating
 
 class Dataset:
     def __init__(self, path):
+        self.triples_path = os.path.join(path, 'triples.csv')
+
         if not os.path.exists(path):
             raise IOError(f'Dataset path {path} does not exist')
+
+        if not os.path.exists(self.triples_path):
+            raise IOError(f'Dataset path {path} does not contain triples')
 
         self.name = os.path.dirname(path)
         self.experiment_paths = []
@@ -30,7 +35,7 @@ class Dataset:
         with open(meta_file, 'r') as fp:
             data = json.load(fp)
 
-            for required in ['e_idx_map', 'n_users']:
+            for required in ['e_idx_map']:
                 if required not in data:
                     raise RuntimeError(f'Dataset path {path} does not contain {required} in meta data')
 
@@ -39,16 +44,18 @@ class Dataset:
 
     def experiments(self):
         for path in self.experiment_paths:
-            yield Experiment(path)
+            yield Experiment(self, path)
 
 
 class Experiment:
-    def __init__(self, path):
+    def __init__(self, parent, path):
         if not os.path.exists(path):
             raise IOError(f'Experiment path {path} does not exist')
 
+        self.dataset = parent
         self.name = os.path.dirname(path)
         self.split_paths = []
+
         for file in os.listdir(path):
             if not file.endswith('.json'):
                 continue
@@ -60,14 +67,15 @@ class Experiment:
 
     def splits(self):
         for path in self.split_paths:
-            yield Split(path)
+            yield Split(self, path)
 
 
 class Split:
-    def __init__(self, path):
+    def __init__(self, parent, path):
         if not os.path.exists(path):
             raise IOError(f'Split path {path} does not exist')
 
+        self.experiment = parent
         self.name = os.path.basename(path)
 
         with open(path, 'r') as fp:
@@ -81,9 +89,27 @@ class Split:
             self.validation = data['validation']
             self.training = []
 
+            movies = set()
+            descriptive_entities = set()
+            users = set()
+
             for user, ratings in data['training']:
-                self.training.append((user, [Rating(rating['u_idx'], rating['e_idx'], rating['rating'],
-                                                    rating['is_movie_rating']) for rating in ratings]))
+                user_ratings = list()
+                users.add(user)
+
+                for rating in ratings:
+                    is_movie_rating = rating['is_movie_rating']
+                    e_idx = rating['e_idx']
+
+                    user_ratings.append(Rating(user, e_idx, rating['rating'], is_movie_rating))
+                    movies.add(e_idx) if is_movie_rating else descriptive_entities.add(e_idx)
+
+                self.training.append((user, user_ratings))
+
+            self.n_users = max(users) + 1
+            self.n_descriptive_entities = max(descriptive_entities) + 1
+            self.n_movies = max(movies) + 1
+            self.n_entities = max(self.n_movies, self.n_descriptive_entities)
 
 
 if __name__ == '__main__':

@@ -4,14 +4,14 @@ import numpy as np
 
 
 class ItemKNNRecommender(RecommenderBase):
-    def __init__(self, data_loader):
+    def __init__(self, split):
         super(ItemKNNRecommender).__init__()
-        self.n_entities = len(data_loader.e_idx_map)
-        self.data_loader = data_loader
-        self.entity_vectors = np.zeros((self.n_entities, data_loader.n_users))
-        self.plain_entity_vectors = np.zeros((self.n_entities, data_loader.n_users))
-        self.user_adjusted_entity_vectors = np.zeros((self.n_entities, data_loader.n_users), dtype=np.float64)
-        self.pearson_entity_vectors = np.zeros((self.n_entities, data_loader.n_users), dtype=np.float64)
+        self.n_entities = split.n_entities
+        self.split = split
+        self.entity_vectors = np.zeros((self.n_entities, split.n_users))
+        self.plain_entity_vectors = np.zeros((self.n_entities, split.n_users))
+        self.user_adjusted_entity_vectors = np.zeros((self.n_entities, split.n_users), dtype=np.float64)
+        self.pearson_entity_vectors = np.zeros((self.n_entities, split.n_users), dtype=np.float64)
         self.user_average = np.zeros(())
         self.user_ratings = {}
         self.use_shrunk_similarity = True
@@ -58,11 +58,11 @@ class ItemKNNRecommender(RecommenderBase):
             for user in indices:
                 self.pearson_entity_vectors[entity][user] = self.plain_entity_vectors[entity][user] - entity_average[entity]
 
-        # Calculate num corated
-        zeros = np.zeros((self.n_entities, self.data_loader.n_users))
+        # Calculate num co-rated
+        zeros = np.zeros((self.n_entities, self.split.n_users))
         for i in range(self.n_entities):
             i_vector = self.plain_entity_vectors[i]
-            i_matrix = np.zeros((self.n_entities, self.data_loader.n_users))
+            i_matrix = np.zeros((self.n_entities, self.split.n_users))
             i_matrix[:] = i_vector
             zeros_filter = np.not_equal(zeros, i_matrix)
             equal_filter = np.equal(i_matrix, self.plain_entity_vectors)
@@ -71,9 +71,8 @@ class ItemKNNRecommender(RecommenderBase):
             self.shrunk_similarity[i] = sim_i_j
 
         last_better = True
-        cur_index = 0
-        best_outer_config = {'metric': 'cosine', 'k': 10, 'hitrate': -1, 'use_shrunk': False, 'shrink_factor': 100}
-        best_inner_config = {'metric': 'cosine', 'k': 10, 'hitrate': 0, 'use_shrunk': False, 'shrink_factor': 100}
+        best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1, 'use_shrunk': False, 'shrink_factor': 100}
+        best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0, 'use_shrunk': False, 'shrink_factor': 100}
         iteration = 0
         while last_better and iteration < max_iterations:
             iteration += 1
@@ -83,10 +82,10 @@ class ItemKNNRecommender(RecommenderBase):
                 cur_configuration['metric'] = func
                 self.set_self(cur_configuration)
 
-                hitrate = self._fit_pred(validation)
-                cur_configuration['hitrate'] = hitrate
+                hit_rate = self._fit_pred(validation)
+                cur_configuration['hit_rate'] = hit_rate
 
-                if best_inner_config['hitrate'] < hitrate:
+                if best_inner_config['hit_rate'] < hit_rate:
                     best_inner_config = cur_configuration.copy()
 
                 if verbose:
@@ -98,10 +97,10 @@ class ItemKNNRecommender(RecommenderBase):
             for k in [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55]:
                 cur_configuration['k'] = k
                 self.set_self(cur_configuration)
-                hitrate = self._fit_pred(validation)
-                cur_configuration['hitrate'] = hitrate
+                hit_rate = self._fit_pred(validation)
+                cur_configuration['hit_rate'] = hit_rate
 
-                if best_inner_config['hitrate'] < hitrate:
+                if best_inner_config['hit_rate'] < hit_rate:
                     best_inner_config = cur_configuration.copy()
 
                 if verbose:
@@ -118,21 +117,21 @@ class ItemKNNRecommender(RecommenderBase):
             for s in [1, 10, 25, 50, 100, 150, 200, 250, 300]:
                 cur_configuration['shrink_factor'] = s
                 self.set_self(cur_configuration)
-                hitrate = self._fit_pred(validation)
-                cur_configuration['hitrate'] = hitrate
+                hit_rate = self._fit_pred(validation)
+                cur_configuration['hit_rate'] = hit_rate
 
-                if best_inner_config['hitrate'] < hitrate:
+                if best_inner_config['hit_rate'] < hit_rate:
                     best_inner_config = cur_configuration.copy()
 
                 if verbose:
                     print(cur_configuration)
 
             # Select best of with and without shrunk
-            if best_inner_config['use_shrunk'] and best_inner_config['hitrate'] < no_shrink_hitrate:
+            if best_inner_config['use_shrunk'] and best_inner_config['hit_rate'] < no_shrink_hitrate:
                 best_inner_config['use_shrunk'] = False
-                best_inner_config['hitrate'] = no_shrink_hitrate
+                best_inner_config['hit_rate'] = no_shrink_hitrate
 
-            if best_inner_config['hitrate'] > best_outer_config['hitrate']:
+            if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
                 best_outer_config = best_inner_config.copy()
                 print(f'New best: {best_outer_config}')
             else:
