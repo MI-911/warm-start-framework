@@ -122,6 +122,8 @@ def summarise(experiment_base):
     if not model_directories:
         return {}
 
+    results = dict()
+
     for model in model_directories:
         # Get split results
         model_base = os.path.join(experiment_base, model)
@@ -150,8 +152,6 @@ def summarise(experiment_base):
         hr = dict()
         ndcg = dict()
 
-        print(hrs)
-
         for k in range(1, upper_cutoff + 1):
             k = str(k)
 
@@ -165,7 +165,9 @@ def summarise(experiment_base):
                 'std': np.std(ndcgs[k])
             }
 
-        return {'hr': hr, 'ndcg': ndcg}
+        results[model] = {'hr': hr, 'ndcg': ndcg}
+
+    return results
 
 
 def run():
