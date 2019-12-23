@@ -28,7 +28,6 @@ class MF(nn.Module):
         user_id, item_id, rating = self.params_to(user_id, item_id, rating)
         predictions = (self.users(user_id) * self.items(item_id)).sum(dim=1)
 
-        return tt.sqrt((rating - predictions).pow(2)).sum()
         return self.loss_fn(rating, predictions)
 
     def predict(self, user_id, item_indices=None):
