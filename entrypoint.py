@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import traceback
 from collections import defaultdict
@@ -117,11 +118,25 @@ def run():
     if args.exclude:
         model_selection = model_selection.difference(set(args.exclude))
 
+    # Initialize dataset
     dataset = Dataset('data', args.experiments)
+
+    # Create results folder
+    results_base = 'results'
+    if not os.path.exists(results_base):
+        os.mkdir(results_base)
+
+    # Run experiments
     for experiment in dataset.experiments():
+        # Create experiment directory
+        experiment_base = os.path.join(results_base, experiment.name)
+        if not os.path.exists(experiment_base):
+            os.mkdir(experiment_base)
+
         for split in experiment.splits():
             # Run models
             for model in model_selection:
+                # Instantiate model
                 model_parameters = models[model]
                 recommender = instantiate(model_parameters, split)
                 if not recommender:
@@ -129,6 +144,12 @@ def run():
 
                     continue
 
+                # Create directory for model
+                model_base = os.path.join(experiment_base, model)
+                if not os.path.exists(model_base):
+                    os.mkdir(model_base)
+
+                # Fit and test
                 logger.info(f'Fitting {model}')
                 try:
                     recommender.fit(split.training, split.validation)
@@ -139,6 +160,11 @@ def run():
 
                     break
 
+                # Save results to split file
+                with open(os.path.join(model_base, split.name), 'w') as fp:
+                    json.dump({'hr': hr, 'ndcg': ndcg}, fp)
+
+                # Debug
                 for k in [1, 5, 10]:
                     logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')
                     logger.info(f'{model} NDCG@{k}: {ndcg[k] * 100:.2f}')
