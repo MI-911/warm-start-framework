@@ -1,5 +1,5 @@
 from models.base_recommender import RecommenderBase
-from models.mf import MF
+from models.joint_mf import JointMF
 import numpy as np
 import random
 import torch as tt
@@ -7,9 +7,9 @@ from loguru import logger
 
 
 class JointMatrixFactorisationRecommender(RecommenderBase):
-    def __init__(self, data_loader):
+    def __init__(self, split):
         super(JointMatrixFactorisationRecommender, self).__init__()
-        self.data_loader = data_loader
+        self.split = split
 
     def convert_rating(self, rating):
         if rating == 1:
@@ -54,12 +54,23 @@ class JointMatrixFactorisationRecommender(RecommenderBase):
             yield triples[i:i + n]
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        n_users = self.data_loader.n_users
-        n_movies = self.data_loader.n_movies
-        n_descriptive_entities = self.data_loader.n_descriptive_entities
-        n_latent_factors = 25
+        hit_rates = {}
 
-        self.model = MF(n_users, n_movies + n_descriptive_entities, latent_factors=n_latent_factors)
+        for n_latent_factors in [2, 5, 10, 15, 25, 50, 100]:
+            logger.info(f'Fitting JointMF with {n_latent_factors} latent factors.')
+            self.model = JointMF(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities, n_latent_factors)
+            hit_rates[n_latent_factors] = self._fit(training, validation, max_iterations)
+
+        hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
+        best_n_latent_factors = [n for n, hit in hit_rates][0]
+
+        logger.info(f'Found best n_latent_factors at {best_n_latent_factors}.')
+
+        self.model = JointMF(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities, best_n_latent_factors)
+        logger.info(f'Fitting JointMF with {best_n_latent_factors} latent factors.')
+        self._fit(training, validation)
+
+    def _fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
 
         optimizer = tt.optim.Adam(self.model.parameters(), lr=0.003)
 
@@ -71,11 +82,13 @@ class JointMatrixFactorisationRecommender(RecommenderBase):
                 rating = self.convert_rating(r.rating)
                 training_triples.append((u, r.e_idx, rating))
 
-        sppmi_triples = self.get_sppmi(training_triples, self.data_loader.n_movies + self.data_loader.n_descriptive_entities)
+        sppmi_triples = self.get_sppmi(training_triples, self.split.n_movies + self.split.n_descriptive_entities)
 
         # Set a boolean so the model knows if its a rating or an SPPMI entry
         training_triples = [(u, e, r, True) for u, e, r in training_triples]
         sppmi_triples = [(i ,j, s, False) for i, j, s in sppmi_triples]
+
+        validation_history = []
 
         for epoch in range(max_iterations):
             training_triples += sppmi_triples
@@ -102,8 +115,13 @@ class JointMatrixFactorisationRecommender(RecommenderBase):
                         pred_map = {i: rank for rank, (i, s) in enumerate(pred_map)}
                         ranks.append(pred_map[pos])
 
+                    _hit = np.mean([1 if r < 10 else 0 for r in ranks])
+                    validation_history.append(_hit)
+
                 if verbose:
-                    logger.info(f'Hit@10 at epoch {epoch}: {np.mean([1 if r < 10 else 0 for r in ranks])}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
+
+        return np.mean(validation_history[-10:])
 
     def predict(self, user, items):
         predictions = self.model.predict(user, items)

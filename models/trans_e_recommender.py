@@ -190,7 +190,7 @@ class CollabTransERecommender(RecommenderBase):
             hit_rates[n_latent_factors] = self._fit(training, validation)
 
         hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
-        best_n_latent_factors = [n for n, hit in hit_rates]
+        best_n_latent_factors = [n for n, hit in hit_rates][0]
 
         logger.info(f'Found best n_latent_factors at {best_n_latent_factors}. ')
 
@@ -294,7 +294,7 @@ class KGTransERecommender(RecommenderBase):
             hit_rates[n_latent_factors] = self._fit(training, validation)
 
         hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
-        best_n_latent_factors = [n for n, hit in hit_rates]
+        best_n_latent_factors = [n for n, hit in hit_rates][0]
 
         logger.info(f'Found best n_latent_factors at {best_n_latent_factors}. ')
 
