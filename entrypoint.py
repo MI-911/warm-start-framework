@@ -19,14 +19,18 @@ from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
+from models.mf_recommender import MatrixFactorisationRecommender
+from models.joint_mf_recommender import JointMatrixFactorisationRecommender
 
 models = {
     'transe': {
         'class': CollabTransERecommender,
+        'split': True,
         'descending': False
     },
     'transe-kg': {
         'class': KGTransERecommender,
+        'split': True,
         'descending': False
     },
     'user-knn': {
@@ -54,8 +58,14 @@ models = {
         'class': JointPageRankRecommender,
         'split': True
     },
-    'mf': None,
-    'joint-mf': None,
+    'mf': {
+        'class': MatrixFactorisationRecommender,
+        'split': True
+    },
+    'joint-mf': {
+        'class': JointMatrixFactorisationRecommender,
+        'split': True
+    },
     'top-pop': {
         'class': TopPopRecommender
     },
