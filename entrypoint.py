@@ -7,12 +7,12 @@ from collections import defaultdict
 import numpy as np
 from loguru import logger
 
-from data_loading.loo_data_loader import DesignatedDataLoader
-from experiments.experiment import Experiment, Dataset
+from experiments.experiment import Dataset
 from metrics.metrics import ndcg_at_k
 from models.bpr_recommender import BPRRecommender
 from models.item_knn_recommender import ItemKNNRecommender
 from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
+from models.pagerank.joint_pagerank_recommender import JointPageRankRecommender
 from models.pagerank.kg_pagerank_recommender import KnowledgeGraphPageRankRecommender
 from models.randumb import RandomRecommender
 from models.svd_recommender import SVDRecommender
@@ -47,7 +47,10 @@ models = {
         'class': KnowledgeGraphPageRankRecommender,
         'split': True
     },
-    'pr-joint': None,
+    'pr-joint': {
+        'class': JointPageRankRecommender,
+        'split': True
+    },
     'mf': None,
     'joint-mf': None,
     'top-pop': {
