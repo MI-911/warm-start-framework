@@ -15,7 +15,7 @@ def n_not_in_train(xs, train_ratings):
 
 
 if __name__ == '__main__':
-    base_dir = 'datasets/datasets_with_top_pop'
+    base_dir = 'datasets_with_top_pop'
     experiments = os.listdir(base_dir)
 
     for experiment in experiments:

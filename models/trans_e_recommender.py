@@ -5,6 +5,7 @@ import numpy as np
 import torch as tt
 import pandas as pd
 import random
+from loguru import logger
 import json
 
 
@@ -21,7 +22,7 @@ def convert_ratings(ratings):
     converted = []
     for user_index, rs in ratings:
         converted.append((user_index, [
-            Rating(r.u_idx, r.e_idx, 1 if r.rating == 1 else 0, r.is_movie_rating)
+            Rating(r.u_idx, r.e_idx, 1 if r.rating == 1 else 0 if r.rating == -1 else 2, r.is_movie_rating)
             for r in rs
         ]))
 
@@ -103,7 +104,7 @@ def load_kg_triples(split):
 
     indexed_triples = []
     r_idx_map = {}
-    rc = 2
+    rc = 3
     for h, r, t in triples:
         if r not in r_idx_map:
             r_idx_map[r] = rc
@@ -166,21 +167,39 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
     return corrupted
 
 
-class TransERecommender(RecommenderBase):
-    def __init__(self, split, with_kg_triples, with_standard_corruption, n_entities, n_relations=2, margin=1,
-                 n_latent_factors=50, learning_rate=0.003):
-        super(TransERecommender, self).__init__(TransE(n_entities, n_relations if not with_kg_triples else 9, margin,
-                                                       n_latent_factors))
-        self.n_entities = n_entities
-        self.n_relations = n_relations
-        self.margin = margin
-        self.n_latent_factors = n_latent_factors
-        self.learning_rate = learning_rate
-        self.with_kg_triples = with_kg_triples
-        self.with_standard_corruption = with_standard_corruption
+class CollabTransERecommender(RecommenderBase):
+
+    def __init__(self, split):
+        super(CollabTransERecommender, self).__init__()
+
+        self.n_entities = split.n_users + split.n_movies + split.n_descriptive_entities
+        self.n_relations = 3  # Like, dislike, unknown
+
+        self.with_kg_triples = False
+        self.with_standard_corruption = True
         self.split = split
 
-    def fit(self, training, validation, max_iterations=100, verbose=True, save_to=None):
+        self.learning_rate = 0.003
+        self.margin = 1.0
+
+    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
+        hit_rates = {}
+        for n_latent_factors in [2, 5, 10, 15, 25, 50, 100]:
+            logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+            self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
+            hit_rates[n_latent_factors] = self._fit(training, validation)
+
+        hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
+        best_n_latent_factors = [n for n, hit in hit_rates]
+
+        logger.info(f'Found best n_latent_factors at {best_n_latent_factors}. ')
+
+        self.model = TransE(self.n_entities, self.n_relations, self.margin, best_n_latent_factors)
+
+        logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+        self._fit(training, validation, max_iterations, verbose)
+
+    def _fit(self, training, validation, max_iterations=100, verbose=True):
         val_hit_history = []
         val_dcg_history = []
         training_loss_history = []
@@ -193,9 +212,9 @@ class TransERecommender(RecommenderBase):
         n_total_entities_no_users = n_total_entities - self.split.n_users
 
         # What indices are for users, movies and entities, respectively?
-        user_indices = list(range(n_total_entities_no_users, n_total_entities))
-        movie_indices = self.split.movie_indices
-        descriptive_entity_indices = self.split.descriptive_entity_indices
+        # user_indices = list(range(n_total_entities_no_users, n_total_entities))
+        # movie_indices = self.split.movie_indices
+        # descriptive_entity_indices = self.split.descriptive_entity_indices
 
         # Load KG triples if needed
         kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})
@@ -212,23 +231,18 @@ class TransERecommender(RecommenderBase):
 
         for epoch in range(max_iterations):
             if epoch % 5 == 0:
-                _loss = evaluate_loss(self.model, train)
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
-                training_loss_history.append(_loss)
                 val_hit_history.append(_hit)
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    print(f'Epoch {epoch}:')
-                    print(f'    Loss:   {_loss : .3f}')
-                    print(f'    Hit@10: {_hit : .3f}')
-                    print(f'    DCG@10: {_dcg : .3f}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
-                corrupt_std(all_train_ratings, user_indices + movie_indices + descriptive_entity_indices)
+                corrupt_std(all_train_ratings, range(self.n_entities))
                 if self.with_standard_corruption else
                 corrupt_rating_triples(all_train_ratings, ratings_matrix, u_idx_to_matrix_map, e_idx_to_matrix_map))
-            corrupted_train_kg_triples = corrupt_std(kg_triples, movie_indices + descriptive_entity_indices)
+            corrupted_train_kg_triples = corrupt_std(kg_triples, range(self.n_entities))
 
             all_pairs = list(zip(all_train_ratings, corrupted_train_ratings))
             all_pairs += list(zip(kg_triples, corrupted_train_kg_triples))
@@ -247,14 +261,116 @@ class TransERecommender(RecommenderBase):
                 optimizer.step()
                 optimizer.zero_grad()
 
-        if save_to is not None:
-            with open(save_to, 'w') as fp:
-                json.dump({
-                    'training_loss': training_loss_history,
-                    'validation_hit_10': val_hit_history,
-                    'validation_dcg_10': val_dcg_history
-                }, fp, indent=True)
+        # Return the latest average Hit@k, use for grid search
+        return np.mean(val_hit_history[-10:])
 
     def predict(self, user, items):
         # Do the prediction
-        return self.model.predict_movies_for_user(user, relation_idx=1, movie_indices=items)
+        with tt.no_grad():
+            self.model.eval()
+            return self.model.predict_movies_for_user(user, relation_idx=1, movie_indices=items)
+
+
+class KGTransERecommender(RecommenderBase):
+
+    def __init__(self, split):
+        super(KGTransERecommender, self).__init__()
+
+        self.n_entities = split.n_users + split.n_movies + split.n_descriptive_entities
+        self.n_relations = 3 + 7  # Like, dislike, unknown
+
+        self.with_kg_triples = True
+        self.with_standard_corruption = True
+        self.split = split
+
+        self.learning_rate = 0.003
+        self.margin = 1.0
+
+    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
+        hit_rates = {}
+        for n_latent_factors in [2, 5, 10, 15, 25, 50, 100]:
+            logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+            self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
+            hit_rates[n_latent_factors] = self._fit(training, validation)
+
+        hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
+        best_n_latent_factors = [n for n, hit in hit_rates]
+
+        logger.info(f'Found best n_latent_factors at {best_n_latent_factors}. ')
+
+        self.model = TransE(self.n_entities, self.n_relations, self.margin, best_n_latent_factors)
+
+        logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+        self._fit(training, validation, max_iterations, verbose)
+
+    def _fit(self, training, validation, max_iterations=100, verbose=True):
+        val_hit_history = []
+        val_dcg_history = []
+        training_loss_history = []
+
+        # Convert likes/dislikes to relation 1 and 0
+        train = convert_ratings(training)
+
+        # Num entities
+        n_total_entities = self.split.n_users + self.split.n_descriptive_entities + self.split.n_movies
+        n_total_entities_no_users = n_total_entities - self.split.n_users
+
+        # What indices are for users, movies and entities, respectively?
+        # user_indices = list(range(n_total_entities_no_users, n_total_entities))
+        # movie_indices = self.split.movie_indices
+        # descriptive_entity_indices = self.split.descriptive_entity_indices
+
+        # Load KG triples if needed
+        kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})
+        self.n_relations += len(r_idx_map)
+
+        optimizer = tt.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+
+        # Rating triples
+        all_train_ratings = flatten_ratings(train)
+        ratings_matrix, u_idx_to_matrix_map, e_idx_to_matrix_map = get_like_matrix(
+            all_train_ratings,
+            self.split.n_users,
+            self.split.n_entities)
+
+        for epoch in range(max_iterations):
+            if epoch % 5 == 0:
+                _hit, _dcg = evaluate_hit(self.model, validation, n=10)
+                val_hit_history.append(_hit)
+                val_dcg_history.append(_dcg)
+
+                if verbose:
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
+
+            corrupted_train_ratings = (
+                corrupt_std(all_train_ratings, range(self.n_entities))
+                if self.with_standard_corruption else
+                corrupt_rating_triples(all_train_ratings, ratings_matrix, u_idx_to_matrix_map, e_idx_to_matrix_map))
+            corrupted_train_kg_triples = corrupt_std(kg_triples, range(self.n_entities))
+
+            all_pairs = list(zip(all_train_ratings, corrupted_train_ratings))
+            all_pairs += list(zip(kg_triples, corrupted_train_kg_triples))
+
+            random.shuffle(all_pairs)
+            positive_samples, negative_samples = zip(*all_pairs)
+
+            self.model.train()
+            for (p_h, p_r, p_t), (n_h, n_r, n_t) in batchify(positive_samples, negative_samples):
+                p_distance = self.model(p_h, p_r, p_t)
+                n_distance = self.model(n_h, n_r, n_t)
+
+                loss = tt.relu(self.model.margin + p_distance - n_distance).sum()
+
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+
+        # Return the latest average Hit@k, use for grid search
+        return np.mean(val_hit_history[-10:])
+
+    def predict(self, user, items):
+        # Do the prediction
+        with tt.no_grad():
+            self.model.eval()
+            return self.model.predict_movies_for_user(user, relation_idx=1, movie_indices=items)
+

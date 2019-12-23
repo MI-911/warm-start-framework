@@ -3,6 +3,7 @@ from models.mf import MF
 import numpy as np
 import random
 import torch as tt
+from loguru import logger
 
 
 class JointMatrixFactorisationRecommender(RecommenderBase):
@@ -102,7 +103,7 @@ class JointMatrixFactorisationRecommender(RecommenderBase):
                         ranks.append(pred_map[pos])
 
                 if verbose:
-                    print(f'Epoch {epoch}: Hit@10: {np.mean([1 if r < 10 else 0 for r in ranks])}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {np.mean([1 if r < 10 else 0 for r in ranks])}')
 
     def predict(self, user, items):
         predictions = self.model.predict(user, items)

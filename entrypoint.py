@@ -18,12 +18,15 @@ from models.randumb import RandomRecommender
 from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
+from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
 
 models = {
     'transe': {
+        'class': CollabTransERecommender,
         'descending': False
     },
     'transe-kg': {
+        'class': KGTransERecommender,
         'descending': False
     },
     'user-knn': {
