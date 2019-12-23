@@ -1,5 +1,6 @@
 import argparse
 import os
+import traceback
 from collections import defaultdict
 
 import numpy as np
@@ -61,6 +62,7 @@ upper_cutoff = 50
 parser = argparse.ArgumentParser()
 parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), help='models to include')
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
+parser.add_argument('--experiments', nargs='*', type=str, help='experiments to run')
 
 
 def instantiate(parameters, split):
@@ -115,7 +117,7 @@ def run():
     if args.exclude:
         model_selection = model_selection.difference(set(args.exclude))
 
-    dataset = Dataset('data')
+    dataset = Dataset('data', args.experiments)
     for experiment in dataset.experiments():
         for split in experiment.splits():
             # Run models
@@ -128,9 +130,14 @@ def run():
                     continue
 
                 logger.info(f'Fitting {model}')
-                recommender.fit(split.training, split.validation)
+                try:
+                    recommender.fit(split.training, split.validation)
+                    hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
+                except Exception as e:
+                    logger.error(f'{model} failed during {split} due to {e}')
+                    traceback.print_exc()
 
-                hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
+                    break
 
                 for k in [1, 5, 10]:
                     logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')

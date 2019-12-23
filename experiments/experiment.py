@@ -1,11 +1,12 @@
 import json
 import os
+from typing import List
 
 from data_loading.generic_data_loader import Rating
 
 
 class Dataset:
-    def __init__(self, path):
+    def __init__(self, path: str, experiments: List[str]):
         self.triples_path = os.path.join(path, 'triples.csv')
 
         if not os.path.exists(path):
@@ -14,16 +15,16 @@ class Dataset:
         if not os.path.exists(self.triples_path):
             raise IOError(f'Dataset path {path} does not contain triples')
 
-        self.name = os.path.dirname(path)
+        self.name = os.path.basename(path)
         self.experiment_paths = []
 
         for item in os.listdir(path):
-            item = os.path.join(path, item)
+            full_path = os.path.join(path, item)
 
-            if not os.path.isdir(item):
+            if not os.path.isdir(full_path) or experiments and item not in experiments:
                 continue
 
-            self.experiment_paths.append(item)
+            self.experiment_paths.append(full_path)
 
         if not self.experiment_paths:
             raise RuntimeError(f'Dataset path {path} contains no experiments')
@@ -42,6 +43,9 @@ class Dataset:
             self.e_idx_map = data['e_idx_map']
             self.n_users = data['n_users']
 
+    def __str__(self):
+        return self.name
+
     def experiments(self):
         for path in self.experiment_paths:
             yield Experiment(self, path)
@@ -53,7 +57,7 @@ class Experiment:
             raise IOError(f'Experiment path {path} does not exist')
 
         self.dataset = parent
-        self.name = os.path.dirname(path)
+        self.name = os.path.basename(path)
         self.split_paths = []
 
         for file in os.listdir(path):
@@ -64,6 +68,9 @@ class Experiment:
 
         if not self.split_paths:
             raise RuntimeError(f'Experiment path {path} contains no splits')
+
+    def __str__(self):
+        return f'{self.dataset}/{self.name}'
 
     def splits(self):
         for path in self.split_paths:
@@ -110,6 +117,9 @@ class Split:
             self.n_descriptive_entities = max(descriptive_entities) + 1
             self.n_movies = max(movies) + 1
             self.n_entities = max(self.n_movies, self.n_descriptive_entities)
+
+    def __str__(self):
+        return f'{self.experiment}/{self.name}'
 
 
 if __name__ == '__main__':
