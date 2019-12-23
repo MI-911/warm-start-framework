@@ -187,6 +187,8 @@ def run():
 
     # Run experiments
     for experiment in dataset.experiments():
+        logger.info(f'Experiment: {experiment.name}')
+
         # Create experiment directory
         experiment_base = os.path.join(results_base, experiment.name)
         if not os.path.exists(experiment_base):
@@ -225,7 +227,7 @@ def run():
                     json.dump({'hr': hr, 'ndcg': ndcg}, fp)
 
                 # Debug
-                for k in [1, 5, 10]:
+                for k in [10]:
                     logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')
                     logger.info(f'{model} NDCG@{k}: {ndcg[k] * 100:.2f}')
 
