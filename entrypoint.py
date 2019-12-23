@@ -58,6 +58,12 @@ models = {
         'class': JointPageRankRecommender,
         'split': True
     },
+    'top-pop': {
+        'class': TopPopRecommender
+    },
+    'random': {
+        'class': RandomRecommender
+    },
     'mf': {
         'class': MatrixFactorisationRecommender,
         'split': True
@@ -66,12 +72,6 @@ models = {
         'class': JointMatrixFactorisationRecommender,
         'split': True
     },
-    'top-pop': {
-        'class': TopPopRecommender
-    },
-    'random': {
-        'class': RandomRecommender
-    }
 }
 
 upper_cutoff = 50
