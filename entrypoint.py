@@ -111,6 +111,63 @@ def test_model(name, model, test, reverse):
     return hr, ndcg
 
 
+def summarise(experiment_base):
+    model_directories = []
+    for directory in os.listdir(experiment_base):
+        if not os.path.isdir(os.path.join(experiment_base, directory)):
+            continue
+
+        model_directories.append(directory)
+
+    if not model_directories:
+        return {}
+
+    for model in model_directories:
+        # Get split results
+        model_base = os.path.join(experiment_base, model)
+        model_splits = {}
+
+        # Load all splits for this model
+        for file in os.listdir(model_base):
+            if not file.endswith('.json'):
+                continue
+
+            with open(os.path.join(model_base, file), 'r') as fp:
+                model_splits[file] = json.load(fp)
+
+        # Get all HRs and NDCGs for the different cutoffs
+        hrs = defaultdict(list)
+        ndcgs = defaultdict(list)
+
+        for contents in model_splits.values():
+            for k in range(1, upper_cutoff + 1):
+                k = str(k)
+
+                hrs[k].append(contents['hr'][k])
+                ndcgs[k].append(contents['ndcg'][k])
+
+        # Get mean and std for HR and NDCG at each cutoff
+        hr = dict()
+        ndcg = dict()
+
+        print(hrs)
+
+        for k in range(1, upper_cutoff + 1):
+            k = str(k)
+
+            hr[k] = {
+                'mean': np.mean(hrs[k]),
+                'std': np.std(hrs[k])
+            }
+
+            ndcg[k] = {
+                'mean': np.mean(ndcgs[k]),
+                'std': np.std(ndcgs[k])
+            }
+
+        return {'hr': hr, 'ndcg': ndcg}
+
+
 def run():
     # Filter models
     args = parser.parse_args()
@@ -133,6 +190,7 @@ def run():
         if not os.path.exists(experiment_base):
             os.mkdir(experiment_base)
 
+        # Run all splits
         for split in experiment.splits():
             # Run models
             for model in model_selection:
@@ -168,6 +226,10 @@ def run():
                 for k in [1, 5, 10]:
                     logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')
                     logger.info(f'{model} NDCG@{k}: {ndcg[k] * 100:.2f}')
+
+        # Summarise the experiment in a single file
+        with open(os.path.join(experiment_base, 'summary.json'), 'w') as fp:
+            json.dump(summarise(experiment_base), fp)
 
 
 if __name__ == '__main__':
