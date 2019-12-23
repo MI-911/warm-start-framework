@@ -15,7 +15,7 @@ def n_not_in_train(xs, train_ratings):
 
 
 if __name__ == '__main__':
-    base_dir = 'datasets_no_top_pop'
+    base_dir = 'datasets/datasets_with_top_pop'
     experiments = os.listdir(base_dir)
 
     for experiment in experiments:
@@ -52,6 +52,9 @@ if __name__ == '__main__':
 
                 movie_ratings = [r for r in training_ratings if r['is_movie_rating']]
                 de_ratings = [r for r in training_ratings if not r['is_movie_rating']]
+
+                if experiment == 'substituting-3-4':
+                    print(1)
 
                 logger.info('TRAINING:')
                 logger.info(f'  # ratings: {len(training_ratings)}')

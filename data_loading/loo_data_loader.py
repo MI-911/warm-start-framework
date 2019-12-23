@@ -45,7 +45,7 @@ class DesignatedDataLoader(DataLoader):
         if without_top_pop:
             top_pop_movies = sorted(movie_counts.items(), key=lambda x: x[1], reverse=True)
             top_two_percent = int(len(top_pop_movies) * 0.02)
-            top_pop_movies = list(top_pop_movies)[:top_two_percent]
+            top_pop_movies = [m for m, c in top_pop_movies][:top_two_percent]
 
         progress_current = 0
         progress_max = len(u_r_map)
@@ -229,9 +229,9 @@ class DesignatedDataLoader(DataLoader):
 
     @staticmethod
     def load_from(path, filter_unknowns=True, min_num_entity_ratings=1, movies_only=False, unify_user_indices=False,
-                  remove_top_k_percent=None):
+                  remove_top_k_percent=None, random_seed=42):
         return DesignatedDataLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only,
-                                                          unify_user_indices, remove_top_k_percent))
+                                                          unify_user_indices, remove_top_k_percent, random_seed))
 
 
 def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=42):
