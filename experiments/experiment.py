@@ -113,9 +113,9 @@ class Split:
 
                 self.training.append((user, user_ratings))
 
-            self.n_users = max(users) + 1
-            self.n_descriptive_entities = max(descriptive_entities) + 1
-            self.n_movies = max(movies) + 1
+            self.n_users = max(users) + 1 if users else 0
+            self.n_descriptive_entities = max(descriptive_entities) + 1 if descriptive_entities else 0
+            self.n_movies = max(movies) + 1 if movies else 0
             self.n_entities = max(self.n_movies, self.n_descriptive_entities)
 
     def __str__(self):
