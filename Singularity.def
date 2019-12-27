@@ -1,0 +1,10 @@
+Bootstrap: docker
+FROM python:3.7
+
+%files
+    . /app/
+%post
+    cd /app
+    pip install -r requirements.txt
+%startscript
+    python entrypoint.py
