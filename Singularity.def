@@ -1,5 +1,5 @@
 Bootstrap: docker
-FROM python:3.7
+From: python:3.7
 
 %files
     . /app/
