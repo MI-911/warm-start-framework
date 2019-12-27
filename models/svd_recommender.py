@@ -34,13 +34,13 @@ class SVDRecommender(RecommenderBase):
         }
 
         combinations = get_combinations(parameters)
-        logger.info(f'{len(combinations)} hyperparameter combinations')
+        logger.debug(f'{len(combinations)} hyperparameter combinations')
 
         self.ratings = csr(training)
 
         results = list()
         for combination in combinations:
-            logger.info(f'Trying {combination}')
+            logger.debug(f'Trying {combination}')
 
             self._fit(training, **combination)
 
@@ -56,11 +56,11 @@ class SVDRecommender(RecommenderBase):
                     hits += 1
                 count += 1
 
-            logger.info(f'Hit: {hits / count * 100:.2f}%')
+            logger.debug(f'Hit: {hits / count * 100:.2f}%')
             results.append((combination, hits / count))
 
         best = sorted(results, key=operator.itemgetter(1), reverse=True)[0]
-        logger.info(f'Best: {best}')
+        logger.info(f'Found best: {best}')
 
         self._fit(training, **best[0])
 

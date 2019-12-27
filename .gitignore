@@ -9,3 +9,5 @@ venv
 new/
 
 notebooks/bpr.ipynb~
+
+*.gz

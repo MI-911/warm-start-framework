@@ -69,6 +69,8 @@ class Experiment:
         if not self.split_paths:
             raise RuntimeError(f'Experiment path {path} contains no splits')
 
+        self.split_paths = sorted(self.split_paths)
+
     def __str__(self):
         return f'{self.dataset}/{self.name}'
 
@@ -120,7 +122,3 @@ class Split:
 
     def __str__(self):
         return f'{self.experiment}/{self.name}'
-
-
-if __name__ == '__main__':
-    Experiment('../data/top')

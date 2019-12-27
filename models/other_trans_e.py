@@ -15,7 +15,7 @@ class TransE(nn.Module):
         self.k = k
 
         # Initialize embeddings
-        self.entity_embeddings = nn.Embedding(n_entities, k, )
+        self.entity_embeddings = nn.Embedding(n_entities, k)
         self.relation_embeddings = nn.Embedding(n_relations, k)
 
         self.entity_embeddings.weight.data.uniform_(-6 / np.sqrt(k), 6 / np.sqrt(k))

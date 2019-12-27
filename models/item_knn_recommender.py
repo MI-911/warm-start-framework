@@ -1,6 +1,7 @@
 from data_loading.loo_data_loader import DesignatedDataLoader
 from models.base_recommender import RecommenderBase
 import numpy as np
+from loguru import logger
 
 
 class ItemKNNRecommender(RecommenderBase):
@@ -89,7 +90,7 @@ class ItemKNNRecommender(RecommenderBase):
                     best_inner_config = cur_configuration.copy()
 
                 if verbose:
-                    print(cur_configuration)
+                    logger.debug(cur_configuration)
 
             cur_configuration = best_inner_config.copy()
 
@@ -104,7 +105,7 @@ class ItemKNNRecommender(RecommenderBase):
                     best_inner_config = cur_configuration.copy()
 
                 if verbose:
-                    print(cur_configuration)
+                    logger.debug(cur_configuration)
 
             cur_configuration = best_inner_config.copy()
 
@@ -140,7 +141,7 @@ class ItemKNNRecommender(RecommenderBase):
         self.set_self(best_outer_config)
 
         if verbose:
-            print(f'Found best configuration: {best_outer_config}')
+            logger.info(f'Found best configuration: {best_outer_config}')
 
     def set_self(self, configuration):
         self.k = configuration['k']

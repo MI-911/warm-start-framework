@@ -56,18 +56,16 @@ class JointMatrixFactorisationRecommender(RecommenderBase):
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         hit_rates = {}
 
-        for n_latent_factors in [2, 5, 10, 15, 25, 50, 100]:
-            logger.info(f'Fitting JointMF with {n_latent_factors} latent factors.')
+        for n_latent_factors in [1, 5, 10, 15, 25, 50, 100]:
+            logger.debug(f'Fitting JointMF with {n_latent_factors} latent factors')
             self.model = JointMF(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities, n_latent_factors)
             hit_rates[n_latent_factors] = self._fit(training, validation, max_iterations)
 
         hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
         best_n_latent_factors = [n for n, hit in hit_rates][0]
 
-        logger.info(f'Found best n_latent_factors at {best_n_latent_factors}.')
-
         self.model = JointMF(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities, best_n_latent_factors)
-        logger.info(f'Fitting JointMF with {best_n_latent_factors} latent factors.')
+        logger.info(f'Fitting JointMF with {best_n_latent_factors} latent factors')
         self._fit(training, validation)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
@@ -119,7 +117,7 @@ class JointMatrixFactorisationRecommender(RecommenderBase):
                     validation_history.append(_hit)
 
                 if verbose:
-                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
 
         return np.mean(validation_history[-10:])
 
