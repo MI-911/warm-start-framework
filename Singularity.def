@@ -6,5 +6,3 @@ From: python:3.7
 %post
     cd /app
     pip install -r requirements.txt
-%startscript
-    python entrypoint.py
