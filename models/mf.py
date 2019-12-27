@@ -31,7 +31,7 @@ class MF(nn.Module):
         return self.loss_fn(rating, predictions)
 
     def predict(self, user_id, item_indices=None):
-        if item_indices is None:
+        if not item_indices:
             item_indices = range(self.n_items)
         item_indices = tt.tensor(item_indices).to(self.device)
         user_id = tt.tensor(user_id).to(self.device)

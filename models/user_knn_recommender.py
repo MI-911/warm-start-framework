@@ -2,7 +2,7 @@ import numpy as np
 
 from data_loading.loo_data_loader import DesignatedDataLoader
 from models.base_knn import BaseKNN
-
+from loguru import logger
 
 class UserKNNRecommender(BaseKNN):
     def __init__(self, split):
@@ -57,14 +57,14 @@ class UserKNNRecommender(BaseKNN):
 
             if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
                 best_outer_config = best_inner_config.copy()
-                print(f'New best: {best_outer_config}')
+                logger.debug(f'New best: {best_outer_config}')
             else:
                 last_better = False
 
         self._set_self(best_outer_config)
 
         if verbose:
-            print(f'Found best configuration: {best_outer_config}')
+            logger.info(f'Found best configuration: {best_outer_config}')
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
         user_vectors = self.entity_vectors[user]

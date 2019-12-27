@@ -24,10 +24,10 @@ class BPRRecommender(RecommenderBase):
 
         results = list()
         combinations = get_combinations(parameters)
-        logger.info(f'{len(combinations)} hyperparameter combinations')
+        logger.debug(f'{len(combinations)} hyperparameter combinations')
 
         for combination in combinations:
-            logger.info(combination)
+            logger.debug(combination)
 
             self.model = BPR(training, **combination)
             self.model.fit()
@@ -45,7 +45,7 @@ class BPRRecommender(RecommenderBase):
                     hits += 1
                 count += 1
 
-            logger.info(f'Hit: {hits / count * 100}')
+            logger.debug(f'Hit: {hits / count * 100}')
             results.append((combination, hits / count))
 
         best = sorted(results, key=operator.itemgetter(1), reverse=True)[0]

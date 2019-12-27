@@ -93,7 +93,7 @@ class PageRankRecommender(RecommenderBase):
         alpha_hit = dict()
 
         for alpha in alpha_ranges:
-            logger.info(f'Trying alpha value {alpha}')
+            logger.debug(f'Trying alpha value {alpha}')
 
             hits = 0
             count = 0
@@ -109,9 +109,10 @@ class PageRankRecommender(RecommenderBase):
             hit_ratio = hits / count
             alpha_hit[alpha] = hit_ratio
 
-            logger.info(f'Hit ratio of {alpha}: {hit_ratio}')
+            logger.debug(f'Hit ratio of {alpha}: {hit_ratio}')
 
-        self.alpha = max(alpha_hit.items(), key=operator.itemgetter(1))[0]
-        logger.info(f'Best alpha: {self.alpha}')
+        best = max(alpha_hit.items(), key=operator.itemgetter(1))
+        self.alpha = best[0]
+        logger.info(f'Best: {best}')
 
         return alpha_hit

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 import traceback
 from collections import defaultdict
 
@@ -21,6 +22,7 @@ from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
 from models.mf_recommender import MatrixFactorisationRecommender
 from models.joint_mf_recommender import JointMatrixFactorisationRecommender
+from time import time
 
 models = {
     'transe': {
@@ -79,6 +81,7 @@ upper_cutoff = 50
 parser = argparse.ArgumentParser()
 parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), help='models to include')
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
+parser.add_argument('--debug', action='store_true', help='enable debug mode')
 parser.add_argument('--experiments', nargs='*', type=str, help='experiments to run')
 
 
@@ -197,6 +200,10 @@ def run():
     if args.exclude:
         model_selection = model_selection.difference(set(args.exclude))
 
+    if not args.debug:
+        logger.remove()
+        logger.add(sys.stderr, level='INFO')
+
     # Initialize dataset
     dataset = Dataset('data', args.experiments)
 
@@ -207,7 +214,8 @@ def run():
 
     # Run experiments
     for experiment in dataset.experiments():
-        logger.info(f'Experiment: {experiment.name}')
+        logger.info(f'Starting experiment {experiment.name}')
+        experiment_start = time()
 
         # Create experiment directory
         experiment_base = os.path.join(results_base, experiment.name)
@@ -216,7 +224,8 @@ def run():
 
         # Run all splits
         for split in experiment.splits():
-            logger.info(f'Split: {split.name}')
+            logger.info(f'Starting split {split.name}')
+            split_start = time()
 
             # Run models
             for model in model_selection:
@@ -234,7 +243,8 @@ def run():
                     os.mkdir(model_base)
 
                 # Fit and test
-                logger.info(f'Fitting {model}')
+                logger.debug(f'Fitting {model}')
+                start_time = time()
                 try:
                     recommender.fit(split.training, split.validation)
                     hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
@@ -249,9 +259,10 @@ def run():
                     json.dump({'hr': hr, 'ndcg': ndcg}, fp)
 
                 # Debug
-                for k in [10]:
-                    logger.info(f'{model} HR@{k}: {hr[k] * 100:.2f}')
-                    logger.info(f'{model} NDCG@{k}: {ndcg[k] * 100:.2f}')
+                logger.info(f'{model} ({time() - start_time:.2f}s): {hr[10] * 100:.2f}% HR, {ndcg[10] * 100:.2f}% NDCG')
+
+            logger.info(f'Split {split.name} took {time() - split_start:.2f}s')
+        logger.info(f'Experiment {experiment.name} took {time() - experiment_start:.2f}s')
 
         # Summarise the experiment in a single file
         with open(os.path.join(experiment_base, 'summary.json'), 'w') as fp:
