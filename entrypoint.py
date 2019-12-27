@@ -171,14 +171,18 @@ def summarise(experiment_base):
         for k in range(1, upper_cutoff + 1):
             k = str(k)
 
+            if k not in hrs or k not in ndcgs:
+                logger.warning(f'Skipping {k} for {model} due to missing data')
+                continue
+
             hr[k] = {
-                'mean': np.mean(hrs[k]),
-                'std': np.std(hrs[k])
+                'mean': np.mean(hrs[k]) if hrs[k] else np.nan,
+                'std': np.std(hrs[k]) if hrs[k] else np.nan
             }
 
             ndcg[k] = {
-                'mean': np.mean(ndcgs[k]),
-                'std': np.std(ndcgs[k])
+                'mean': np.mean(ndcgs[k]) if ndcgs[k] else np.nan,
+                'std': np.std(ndcgs[k]) if ndcgs[k] else np.nan
             }
 
         results[model] = {'hr': hr, 'ndcg': ndcg}
@@ -212,6 +216,8 @@ def run():
 
         # Run all splits
         for split in experiment.splits():
+            logger.info(f'Split: {split.name}')
+
             # Run models
             for model in model_selection:
                 # Instantiate model
