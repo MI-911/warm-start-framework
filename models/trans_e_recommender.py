@@ -168,7 +168,6 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
 
 
 class CollabTransERecommender(RecommenderBase):
-
     def __init__(self, split):
         super(CollabTransERecommender, self).__init__()
 
@@ -184,19 +183,17 @@ class CollabTransERecommender(RecommenderBase):
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         hit_rates = {}
-        for n_latent_factors in [2, 5, 10, 15, 25, 50, 100]:
-            logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+        for n_latent_factors in [5, 10, 15, 25, 50, 100]:
+            logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
             self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
             hit_rates[n_latent_factors] = self._fit(training, validation)
 
         hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
         best_n_latent_factors = [n for n, hit in hit_rates][0]
 
-        logger.info(f'Found best n_latent_factors at {best_n_latent_factors}. ')
-
         self.model = TransE(self.n_entities, self.n_relations, self.margin, best_n_latent_factors)
 
-        logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+        logger.info(f'Fitting TransE with {n_latent_factors} latent factors')
         self._fit(training, validation, max_iterations, verbose)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True):
@@ -236,7 +233,7 @@ class CollabTransERecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))
@@ -288,19 +285,17 @@ class KGTransERecommender(RecommenderBase):
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         hit_rates = {}
-        for n_latent_factors in [2, 5, 10, 15, 25, 50, 100]:
-            logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+        for n_latent_factors in [5, 10, 15, 25, 50, 100]:
+            logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
             self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
             hit_rates[n_latent_factors] = self._fit(training, validation)
 
         hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
         best_n_latent_factors = [n for n, hit in hit_rates][0]
 
-        logger.info(f'Found best n_latent_factors at {best_n_latent_factors}. ')
-
         self.model = TransE(self.n_entities, self.n_relations, self.margin, best_n_latent_factors)
 
-        logger.info(f'Fitting TransE with {n_latent_factors} latent factors.')
+        logger.info(f'Fitting TransE with {n_latent_factors} latent factors')
         self._fit(training, validation, max_iterations, verbose)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True):
@@ -340,7 +335,7 @@ class KGTransERecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))
