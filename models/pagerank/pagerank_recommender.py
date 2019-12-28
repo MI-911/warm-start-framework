@@ -84,39 +84,8 @@ class PageRankRecommender(RecommenderBase):
 
         return validation_item in [item[0] for item in scores]
 
-    def _fit(self, training):
+    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         for user, ratings in training:
             self.user_ratings[user] = ratings
 
         self.graph = self.construct_graph(training)
-
-    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        self._fit(training)
-
-        alpha_ranges = [0.35, 0.6, 0.85]
-        alpha_hit = dict()
-
-        for alpha in alpha_ranges:
-            logger.debug(f'Trying alpha value {alpha}')
-
-            hits = 0
-            count = 0
-
-            for user, validation_tuple in validation:
-                source_nodes = self.get_source_nodes(user)
-                if not source_nodes:
-                    continue
-
-                hits += self._validate(alpha, source_nodes, *validation_tuple)
-                count += 1
-
-            hit_ratio = hits / count
-            alpha_hit[alpha] = hit_ratio
-
-            logger.debug(f'Hit ratio of {alpha}: {hit_ratio}')
-
-        best = max(alpha_hit.items(), key=operator.itemgetter(1))
-        self.alpha = best[0]
-        logger.info(f'Best: {best}')
-
-        return alpha_hit
