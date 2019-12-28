@@ -22,6 +22,7 @@ class UserKNNRecommender(BaseKNN):
         :return: None
         """
 
+        logger.debug('Calculating user average')
         for user, ratings in training:
             self.user_ratings[user] = ratings
             for rating in ratings:
@@ -37,6 +38,7 @@ class UserKNNRecommender(BaseKNN):
             for user in indices:
                 self.pearson_entity_vectors[user][entity] = self.plain_entity_vectors[user][entity] - self.mean_centered_ratings[user]
 
+        logger.debug('Starting fitting process')
         last_better = True
         best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1}
         best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0}

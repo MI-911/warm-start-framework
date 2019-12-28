@@ -1,5 +1,6 @@
 from models.base_recommender import RecommenderBase
 import numpy as np
+from loguru import logger
 
 
 class BaseKNN(RecommenderBase):
@@ -41,7 +42,7 @@ class BaseKNN(RecommenderBase):
             best_config = cur_config.copy()
 
         if verbose:
-            print(cur_config)
+            logger.debug(cur_config)
 
         return best_config
 
