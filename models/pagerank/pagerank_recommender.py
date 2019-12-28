@@ -49,7 +49,7 @@ class PageRankRecommender(RecommenderBase):
     def __init__(self, only_positive=False):
         super().__init__()
         self.graph = None
-        self.alpha = None
+        self.alpha = 0.85
         self.only_positive = only_positive
         self.user_ratings = dict()
 
@@ -84,12 +84,16 @@ class PageRankRecommender(RecommenderBase):
 
         return validation_item in [item[0] for item in scores]
 
-    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
+    def _fit(self, training):
         for user, ratings in training:
             self.user_ratings[user] = ratings
 
         self.graph = self.construct_graph(training)
-        alpha_ranges = [0.1, 0.3, 0.5, 0.7, 0.9]
+
+    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
+        self._fit(training)
+
+        alpha_ranges = [0.35, 0.6, 0.85]
         alpha_hit = dict()
 
         for alpha in alpha_ranges:
