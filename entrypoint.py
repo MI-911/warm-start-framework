@@ -20,8 +20,8 @@ from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
-from models.mf_recommender import MatrixFactorisationRecommender
-from models.joint_mf_recommender import JointMatrixFactorisationRecommender
+from models.mf_numpy_recommender import MatrixFactorisationRecommender
+from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
 from time import time
 
 models = {
@@ -71,9 +71,9 @@ models = {
         'split': True
     },
     'joint-mf': {
-        'class': JointMatrixFactorisationRecommender,
+        'class': JointMatrixFactorizaionRecommender,
         'split': True
-    },
+    }
 }
 
 upper_cutoff = 50
