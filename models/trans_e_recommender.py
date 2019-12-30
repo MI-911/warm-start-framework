@@ -273,7 +273,6 @@ class CollabTransERecommender(RecommenderBase):
 
 
 class KGTransERecommender(RecommenderBase):
-
     def __init__(self, split):
         super(KGTransERecommender, self).__init__()
 
@@ -286,6 +285,7 @@ class KGTransERecommender(RecommenderBase):
 
         self.learning_rate = 0.003
         self.margin = 1.0
+        self.optimal_params = None
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         if self.optimal_params is None:
@@ -298,7 +298,6 @@ class KGTransERecommender(RecommenderBase):
             hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
             best_n_latent_factors = [n for n, hit in hit_rates][0]
             self.optimal_params = {'k': best_n_latent_factors}
-
 
         self.model = TransE(self.n_entities, self.n_relations, self.margin, self.optimal_params['k'])
 
