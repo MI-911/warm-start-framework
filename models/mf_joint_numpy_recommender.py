@@ -50,8 +50,8 @@ class JointMatrixFactorizaionRecommender(RecommenderBase):
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         hit_rates = {}
 
-        for n_latent_factors in [1, 2, 5, 10, 15, 25, 50, 100]:
-            logger.info(f'Fitting MF with {n_latent_factors} latent factors')
+        for n_latent_factors in [1, 2, 5, 10, 15, 25, 50]:
+            logger.debug(f'Fitting MF with {n_latent_factors} latent factors')
             self.model = JointMatrixFactorization(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
                                  n_latent_factors)
             hit_rates[n_latent_factors] = self._fit(training, validation, max_iterations)
@@ -61,10 +61,10 @@ class JointMatrixFactorizaionRecommender(RecommenderBase):
 
         self.model = JointMatrixFactorization(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
                              best_n_latent_factors)
-        logger.info(f'Fitting MF with {best_n_latent_factors} latent factors')
+        logger.debug(f'Fitting MF with {best_n_latent_factors} latent factors')
         self._fit(training, validation)
 
-    def _fit(self, training, validation, max_iterations=500, verbose=True, save_to='./'):
+    def _fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         # Preprocess training data
         training_triples = []
         for u, ratings in training:
@@ -76,11 +76,11 @@ class JointMatrixFactorizaionRecommender(RecommenderBase):
 
         validation_history = []
 
-        for epoch in range(25):
+        for epoch in range(max_iterations):
             random.shuffle(training_triples)
             self.model.train_als(training_triples, sppmi)
 
-            if epoch % 1 == 0:
+            if epoch % 10 == 0:
                 ranks = []
                 for user, (pos, negs) in validation:
                     predictions = self.model.predict(user, negs + [pos])
@@ -92,7 +92,7 @@ class JointMatrixFactorizaionRecommender(RecommenderBase):
                 validation_history.append(_hit)
 
                 if verbose:
-                    logger.info(f'Hit@10 at epoch {epoch}: {np.mean([1 if r < 10 else 0 for r in ranks])}')
+                    logger.debug(f'Hit@10 at epoch {epoch}: {np.mean([1 if r < 10 else 0 for r in ranks])}')
 
         return np.mean(validation_history[-10:])
 
