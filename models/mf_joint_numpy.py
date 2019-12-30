@@ -23,21 +23,16 @@ class JointMatrixFactorization:
             R[u][e] = r
 
         self.U = self.solve_vectors(self.U, self.M, R, self.regularisation, self.relative_rating_influence)
-        self.C = self.solve_vectors(self.C, self.M, sppmi, self.regularisation, self.relative_sppmi_influence, w_zeros=False)
+        self.C = self.solve_vectors(self.C, self.M, sppmi, self.regularisation, self.relative_sppmi_influence)
         self.M = self.solve_joint_vectors(self.M, self.U, self.C, R.T, sppmi, self.regularisation)
 
-    def solve_vectors(self, latent_vectors, fixed_vectors, ratings, regularization, influence, w_zeros=False):
+    def solve_vectors(self, latent_vectors, fixed_vectors, ratings, regularization, influence):
         YTY = fixed_vectors.T.dot(fixed_vectors) * influence
         lambda_i = np.eye(self.k) * regularization
 
         for i in range(latent_vectors.shape[0]):
-            nz = ratings[i].nonzero()
-            if w_zeros:
-                latent_vectors[i] = solve((YTY + lambda_i),
-                                          (ratings[i] * influence).dot(fixed_vectors))
-            else:
-                latent_vectors[i] = solve((YTY + lambda_i),
-                                          (ratings[i][nz] * influence).dot(fixed_vectors[nz]))
+            latent_vectors[i] = solve((YTY + lambda_i),
+                                      (ratings[i] * influence).dot(fixed_vectors))
 
         return latent_vectors
 
@@ -47,11 +42,12 @@ class JointMatrixFactorization:
         lambda_i = np.eye(self.k) * regularization
 
         for i in range(latent_vectors.shape[0]):
-            nz_s = sppmi[i].nonzero()
+            # nz_s = sppmi[i].nonzero()
             latent_vectors[i] = solve(
                 (UTU + CTC + lambda_i),
                 ((ratings[i] * self.relative_rating_influence).dot(user_vectors) +
-                 (sppmi[i][nz_s] * self.relative_sppmi_influence).dot(context_vectors[nz_s]))
+                 # (sppmi[i][nz_s] * self.relative_sppmi_influence).dot(context_vectors[nz_s]))
+                 (sppmi[i] * self.relative_sppmi_influence).dot(context_vectors))
             )
 
         return latent_vectors
