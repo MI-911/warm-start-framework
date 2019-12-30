@@ -20,8 +20,8 @@ from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
-from models.mf_recommender import MatrixFactorisationRecommender
-from models.joint_mf_recommender import JointMatrixFactorisationRecommender
+from models.mf_numpy_recommender import MatrixFactorisationRecommender
+from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
 from time import time
 
 models = {
@@ -71,9 +71,9 @@ models = {
         'split': True
     },
     'joint-mf': {
-        'class': JointMatrixFactorisationRecommender,
+        'class': JointMatrixFactorizaionRecommender,
         'split': True
-    },
+    }
 }
 
 upper_cutoff = 50
@@ -150,7 +150,7 @@ def summarise(experiment_base):
 
         # Load all splits for this model
         for file in os.listdir(model_base):
-            if not file.endswith('.json'):
+            if (not file.endswith('.json')) or file == 'params.json':
                 continue
 
             with open(os.path.join(model_base, file), 'r') as fp:
@@ -223,6 +223,7 @@ def run():
             os.mkdir(experiment_base)
 
         # Run all splits
+        c = 0
         for split in experiment.splits():
             logger.info(f'Starting split {split.name}')
             split_start = time()
@@ -232,6 +233,7 @@ def run():
                 # Instantiate model
                 model_parameters = models[model]
                 recommender = instantiate(model_parameters, split)
+
                 if not recommender:
                     logger.error(f'No parameters specified for {model}')
 
@@ -246,6 +248,13 @@ def run():
                 logger.debug(f'Fitting {model}')
                 start_time = time()
                 try:
+                    params = get_params(model_base)
+                    if params is None:
+                        logger.debug(f'Tuning hyper parameters for {model}...')
+                    else:
+                        logger.debug(f'Reusing optimal parameters for {model}: {params}')
+                        recommender.optimal_params = params
+
                     recommender.fit(split.training, split.validation)
                     hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
                 except Exception as e:
@@ -257,9 +266,13 @@ def run():
                 # Save results to split file
                 with open(os.path.join(model_base, split.name), 'w') as fp:
                     json.dump({'hr': hr, 'ndcg': ndcg}, fp)
+                with open(os.path.join(model_base, 'params.json'), 'w') as fp:
+                    json.dump(recommender.optimal_params, fp)
 
                 # Debug
                 logger.info(f'{model} ({time() - start_time:.2f}s): {hr[10] * 100:.2f}% HR, {ndcg[10] * 100:.2f}% NDCG')
+
+                c += 1
 
             logger.info(f'Split {split.name} took {time() - split_start:.2f}s')
         logger.info(f'Experiment {experiment.name} took {time() - experiment_start:.2f}s')
@@ -267,6 +280,15 @@ def run():
         # Summarise the experiment in a single file
         with open(os.path.join(experiment_base, 'summary.json'), 'w') as fp:
             json.dump(summarise(experiment_base), fp)
+
+
+def get_params(model_base):
+    path = os.path.join(model_base, 'params.json')
+    if os.path.exists(path):
+        with open(path) as fp:
+            return json.load(fp)
+
+    return None
 
 
 if __name__ == '__main__':

@@ -4,12 +4,13 @@ from data_loading.loo_data_loader import DesignatedDataLoader
 from models.base_knn import BaseKNN
 from loguru import logger
 
+
 class UserKNNRecommender(BaseKNN):
     def __init__(self, split):
-        super(UserKNNRecommender, self).__init__(split, split.n_entities, split.n_users)
+        super(UserKNNRecommender, self).__init__(split, split.n_users, split.n_entities)
         self.mean_centered_ratings = np.zeros((self.split.n_users, ))
-        self.user_ratings = {}
-        self.k = 1
+
+        self.optimal_params = None
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         """
@@ -38,35 +39,40 @@ class UserKNNRecommender(BaseKNN):
             for user in indices:
                 self.pearson_entity_vectors[user][entity] = self.plain_entity_vectors[user][entity] - self.mean_centered_ratings[user]
 
-        logger.debug('Starting fitting process')
-        last_better = True
-        best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1}
-        best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0}
-        iteration = 0
-        while last_better and iteration < max_iterations:
-            iteration += 1
-            cur_configuration = best_inner_config.copy()
-            # Optimize func
-            for func in ['cosine', 'pearson']:
-                cur_configuration['metric'] = func
-                best_inner_config = self._fit_pred(cur_configuration, best_inner_config, validation, verbose)
+        if self.optimal_params is None:
+            last_better = True
+            best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1}
+            best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0}
+            iteration = 0
+            while last_better and iteration < max_iterations:
+                iteration += 1
+                cur_configuration = best_inner_config.copy()
+                # Optimize func
+                for func in ['cosine', 'pearson']:
+                    cur_configuration['metric'] = func
+                    best_inner_config = self._fit_pred(cur_configuration, best_inner_config, validation, verbose)
 
-            cur_configuration = best_inner_config.copy()
+                cur_configuration = best_inner_config.copy()
 
-            # Optimize k
-            best_inner_config = self.optimize_k(cur_configuration, best_inner_config, validation,
-                                                [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55], verbose)
+                # Optimize k
+                best_inner_config = self.optimize_k(cur_configuration, best_inner_config, validation,
+                                                    [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55], verbose)
 
-            if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
-                best_outer_config = best_inner_config.copy()
-                logger.debug(f'New best: {best_outer_config}')
-            else:
-                last_better = False
+                if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
+                    best_outer_config = best_inner_config.copy()
+                    logger.debug(f'New best: {best_outer_config}')
+                else:
+                    last_better = False
 
-        self._set_self(best_outer_config)
+            self._set_self(best_outer_config)
 
-        if verbose:
-            logger.info(f'Found best configuration: {best_outer_config}')
+            if verbose:
+                logger.info(f'Found best configuration: {best_outer_config}')
+
+            self.optimal_params = best_outer_config
+        else:
+            logger.debug(f'Reusing params {self.optimal_params}')
+            self._set_self(self.optimal_params)
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
         user_vectors = self.entity_vectors[user]
