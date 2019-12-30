@@ -8,8 +8,6 @@ class UserKNNRecommender(BaseKNN):
     def __init__(self, split):
         super(UserKNNRecommender, self).__init__(split, split.n_users, split.n_entities)
         self.mean_centered_ratings = np.zeros((self.split.n_users, ))
-        self.user_ratings = {}
-        self.k = 1
 
         self.optimal_params = None
 

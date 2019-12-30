@@ -13,6 +13,8 @@ class BaseKNN(RecommenderBase):
         self.entity_vectors = np.zeros((n_xs, n_ys))
         self.plain_entity_vectors = np.zeros((n_xs, n_ys))
         self.pearson_entity_vectors = np.zeros((n_xs, n_ys))
+        self.user_ratings = {}
+        self.k = 1
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
         raise NotImplementedError
