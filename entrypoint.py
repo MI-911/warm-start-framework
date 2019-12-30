@@ -245,7 +245,7 @@ def run():
                     os.mkdir(model_base)
 
                 # Fit and test
-                logger.debug(f'Fitting {model}')
+                logger.info(f'Starting {model}')
                 start_time = time()
                 try:
                     params = get_params(model_base)
