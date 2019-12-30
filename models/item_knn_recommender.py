@@ -17,7 +17,6 @@ class ItemKNNRecommender(BaseKNN):
 
         self.optimal_params = None
 
-
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         """
         Fits the model to the training data.

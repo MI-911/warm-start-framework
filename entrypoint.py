@@ -245,12 +245,12 @@ def run():
                     os.mkdir(model_base)
 
                 # Fit and test
-                logger.debug(f'Fitting {model}')
+                logger.info(f'Starting {model}')
                 start_time = time()
                 try:
                     params = get_params(model_base)
-                    if params is None:
-                        logger.debug(f'Tuning hyper parameters for {model}...')
+                    if not params:
+                        logger.debug(f'Tuning hyper parameters for {model}')
                     else:
                         logger.debug(f'Reusing optimal parameters for {model}: {params}')
                         recommender.optimal_params = params

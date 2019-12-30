@@ -15,6 +15,7 @@ class SVDRecommender(RecommenderBase):
         self.ratings = None
         self.U = None
         self.V = None
+        self.optimal_params = None
 
     def _recommend(self, users):
         return np.dot(self.U[users, :], self.V.T)
@@ -28,41 +29,44 @@ class SVDRecommender(RecommenderBase):
         self.V = VT.T
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        parameters = {
-            'factors': [1, 2, 3],
-            'only_positive': [True, False]
-        }
+        if not self.optimal_params:
+            parameters = {
+                'factors': [1, 2, 3],
+                'only_positive': [True, False]
+            }
 
-        combinations = get_combinations(parameters)
-        logger.debug(f'{len(combinations)} hyperparameter combinations')
+            combinations = get_combinations(parameters)
+            logger.debug(f'{len(combinations)} hyperparameter combinations')
 
-        self.ratings = csr(training)
+            results = list()
+            for combination in combinations:
+                logger.debug(f'Trying {combination}')
 
-        results = list()
-        for combination in combinations:
-            logger.debug(f'Trying {combination}')
+                self._fit(training, **combination)
 
-            self._fit(training, **combination)
+                hits, count = 0, 0
 
-            hits, count = 0, 0
+                for user, validation_tuple in validation:
+                    to_find, negative = validation_tuple
 
-            for user, validation_tuple in validation:
-                to_find, negative = validation_tuple
+                    scores = self.predict(user, [to_find] + negative)
+                    top_k = [item[0] for item in sorted(scores.items(), key=operator.itemgetter(1), reverse=True)][:10]
 
-                scores = self.predict(user, [to_find] + negative)
-                top_k = [item[0] for item in sorted(scores.items(), key=operator.itemgetter(1), reverse=True)][:10]
+                    if to_find in top_k:
+                        hits += 1
+                    count += 1
 
-                if to_find in top_k:
-                    hits += 1
-                count += 1
+                logger.debug(f'Hit: {hits / count * 100:.2f}%')
+                results.append((combination, hits / count))
 
-            logger.debug(f'Hit: {hits / count * 100:.2f}%')
-            results.append((combination, hits / count))
+            best = sorted(results, key=operator.itemgetter(1), reverse=True)[0][0]
+            logger.info(f'Found best: {best}')
 
-        best = sorted(results, key=operator.itemgetter(1), reverse=True)[0]
-        logger.info(f'Found best: {best}')
+            self.optimal_params = best
+        else:
+            logger.debug(f'Using stored hyperparameters {self.optimal_params}')
 
-        self._fit(training, **best[0])
+        self._fit(training, **self.optimal_params)
 
     def predict(self, user, items):
         scores = self._recommend(user)

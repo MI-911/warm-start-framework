@@ -288,18 +288,21 @@ class KGTransERecommender(RecommenderBase):
         self.margin = 1.0
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        hit_rates = {}
-        for n_latent_factors in [5, 10, 15, 25, 50, 100]:
-            logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
-            self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
-            hit_rates[n_latent_factors] = self._fit(training, validation)
+        if self.optimal_params is None:
+            hit_rates = {}
+            for n_latent_factors in [5, 10, 15, 25, 50, 100]:
+                logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
+                self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
+                hit_rates[n_latent_factors] = self._fit(training, validation)
 
-        hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
-        best_n_latent_factors = [n for n, hit in hit_rates][0]
+            hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
+            best_n_latent_factors = [n for n, hit in hit_rates][0]
+            self.optimal_params = {'k': best_n_latent_factors}
 
-        self.model = TransE(self.n_entities, self.n_relations, self.margin, best_n_latent_factors)
 
-        logger.info(f'Fitting TransE with {n_latent_factors} latent factors')
+        self.model = TransE(self.n_entities, self.n_relations, self.margin, self.optimal_params['k'])
+
+        logger.info(f'Fitting TransE with { self.optimal_params["k"]} latent factors')
         self._fit(training, validation, max_iterations, verbose)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True):
