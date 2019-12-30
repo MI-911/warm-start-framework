@@ -7,9 +7,9 @@ from loguru import logger
 
 class ItemKNNRecommender(BaseKNN):
     def __init__(self, split):
-        super(ItemKNNRecommender).__init__(split, split.n_entities, split.n_users)
+        super(ItemKNNRecommender, self).__init__(split, split.n_entities, split.n_users)
         self.entity_vectors = np.zeros(())
-        self.user_adjusted_entity_vectors = np.zeros((self.n_xs, split.n_ys), dtype=np.float64)
+        self.user_adjusted_entity_vectors = np.zeros((self.n_xs, self.n_ys), dtype=np.float64)
         self.user_average = np.zeros(())
         self.use_shrunk_similarity = True
         self.shrink_factor = 100
@@ -117,6 +117,7 @@ class ItemKNNRecommender(BaseKNN):
 
             self.optimal_params = best_outer_config
         else:
+            logger.debug(f'Reusing params {self.optimal_params}')
             self._set_self(self.optimal_params)
 
     def _set_self(self, configuration):

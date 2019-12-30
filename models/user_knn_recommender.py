@@ -4,6 +4,7 @@ from data_loading.loo_data_loader import DesignatedDataLoader
 from models.base_knn import BaseKNN
 from loguru import logger
 
+
 class UserKNNRecommender(BaseKNN):
     def __init__(self, split):
         super(UserKNNRecommender, self).__init__(split, split.n_users, split.n_entities)
@@ -69,6 +70,7 @@ class UserKNNRecommender(BaseKNN):
 
             self.optimal_params = best_outer_config
         else:
+            logger.debug(f'Reusing params {self.optimal_params}')
             self._set_self(self.optimal_params)
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
