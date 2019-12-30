@@ -1,3 +1,5 @@
+from loguru import logger
+
 from models.base_recommender import RecommenderBase
 import numpy as np
 
@@ -8,9 +10,9 @@ class BaseKNN(RecommenderBase):
         self.split = split
         self.n_xs = n_xs
         self.n_ys = n_ys
-        self.entity_vectors = np.zeros((n_xs, n_ys)).transpose()
-        self.plain_entity_vectors = np.zeros((n_xs, n_ys)).transpose()
-        self.pearson_entity_vectors = np.zeros((n_xs, n_ys)).transpose()
+        self.entity_vectors = np.zeros((n_xs, n_ys))
+        self.plain_entity_vectors = np.zeros((n_xs, n_ys))
+        self.pearson_entity_vectors = np.zeros((n_xs, n_ys))
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):
         raise NotImplementedError
@@ -41,7 +43,7 @@ class BaseKNN(RecommenderBase):
             best_config = cur_config.copy()
 
         if verbose:
-            print(cur_config)
+            logger.debug(cur_config)
 
         return best_config
 
