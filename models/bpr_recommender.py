@@ -14,7 +14,7 @@ class BPRRecommender(RecommenderBase):
         self.optimal_params = None
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        if self.optimal_params is None:
+        if not self.optimal_params:
             parameters = {
                 'reg': [0.001],
                 'learning_rate': [0.1],
@@ -50,12 +50,14 @@ class BPRRecommender(RecommenderBase):
                 logger.debug(f'Hit: {hits / count * 100}')
                 results.append((combination, hits / count))
 
-            best = sorted(results, key=operator.itemgetter(1), reverse=True)[0]
+            best = sorted(results, key=operator.itemgetter(1), reverse=True)[0][0]
             self.optimal_params = best
 
-            logger.info(f'Best: {best}')
+            logger.info(f'Found best: {best}')
+        else:
+            logger.debug(f'Using stored hyperparameters {self.optimal_params}')
 
-        self.model = BPR(training, **self.optimal_params[0])
+        self.model = BPR(training, **self.optimal_params)
         self.model.fit()
 
     def predict(self, user, items):
