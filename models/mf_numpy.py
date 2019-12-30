@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.linalg import solve
+from numpy.linalg import solve, inv
 from loguru import logger
 
 
@@ -36,4 +36,3 @@ class MatrixFactorisation:
     def predict(self, user, movies):
         predictions = (self.U[user] * self.M[movies]).sum(axis=1)
         return {m: s for m, s in zip(movies, predictions)}
-

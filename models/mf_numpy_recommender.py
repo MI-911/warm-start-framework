@@ -3,12 +3,14 @@ from models.mf_numpy import MatrixFactorisation
 import numpy as np
 import random
 from loguru import logger
+from utility.utility import get_combinations
 
 
 class MatrixFactorisationRecommender(RecommenderBase):
     def __init__(self, split):
         super(MatrixFactorisationRecommender, self).__init__()
         self.split = split
+        self.optimal_params = None
 
     def convert_rating(self, rating):
         if rating == 1:
@@ -24,21 +26,34 @@ class MatrixFactorisationRecommender(RecommenderBase):
             yield triples[i:i + n]
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        hit_rates = {}
+        hit_rates = []
 
-        for n_latent_factors in [1, 2, 5, 10, 15, 25, 50]:
-            logger.debug(f'Fitting MF with {n_latent_factors} latent factors')
-            self.model = MatrixFactorisation(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
-                                 n_latent_factors)
-            hit_rates[n_latent_factors] = self._fit(training, validation, max_iterations)
+        if self.optimal_params is None:
+            parameters = {
+                'k': [1, 2, 5, 10, 15, 25, 50]
+            }
+            for params in get_combinations(parameters):
+                logger.debug(f'Fitting MF with params: {params}')
+                self.model = MatrixFactorisation(self.split.n_users,
+                                                 self.split.n_movies + self.split.n_descriptive_entities,
+                                                 params['k'])
+                hit_rates.append((self._fit(training, validation, max_iterations), params))
 
-        hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
-        best_n_latent_factors = [n for n, hit in hit_rates][0]
+            hit_rates = sorted(hit_rates, key=lambda x: x[0], reverse=True)
+            _, best_params = hit_rates[0]
 
-        self.model = MatrixFactorisation(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
-                             best_n_latent_factors)
-        logger.debug(f'Fitting MF with {best_n_latent_factors} latent factors')
-        self._fit(training, validation)
+            self.optimal_params = best_params
+
+            self.model = MatrixFactorisation(self.split.n_users,
+                                             self.split.n_movies + self.split.n_descriptive_entities,
+                                             self.optimal_params['k'])
+            logger.debug(f'Found best parameters for MF: {self.optimal_params}')
+            self._fit(training, validation)
+        else:
+            self.model = MatrixFactorisation(self.split.n_users,
+                                             self.split.n_movies + self.split.n_descriptive_entities,
+                                             self.optimal_params['k'])
+            self._fit(training, validation)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         # Preprocess training data
