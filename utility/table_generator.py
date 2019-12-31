@@ -22,7 +22,15 @@ pretty_map = {
     'wtp-all_entities': 'All entities',
     'wtp-all_movies': 'All movies',
     'ntp-all_entities': 'All entities',
-    'ntp-all_movies': 'All movies'
+    'ntp-all_movies': 'All movies',
+    'wtp-substituting-4-4': '4/4',
+    'wtp-substituting-3-4': '3/4',
+    'wtp-substituting-2-4': '2/4',
+    'wtp-substituting-1-4': '1/4',
+    'ntp-substituting-4-4': '4/4',
+    'ntp-substituting-3-4': '3/4',
+    'ntp-substituting-2-4': '2/4',
+    'ntp-substituting-1-4': '1/4',
 }
 
 
