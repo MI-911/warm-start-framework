@@ -1,12 +1,9 @@
 import operator
 from csv import DictReader
 
-import tqdm
 from networkx import pagerank_scipy, Graph
 
 from models.base_recommender import RecommenderBase
-import numpy as np
-from loguru import logger
 
 
 def construct_collaborative_graph(graph, training, only_positive=False):
@@ -52,6 +49,7 @@ class PageRankRecommender(RecommenderBase):
         self.alpha = 0.85
         self.only_positive = only_positive
         self.user_ratings = dict()
+        self.optimal_params = {'alpha': self.alpha}
 
     def predict(self, user, items):
         return self._scores(self.alpha, self.get_source_nodes(user), items)

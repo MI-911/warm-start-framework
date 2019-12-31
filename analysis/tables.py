@@ -1,4 +1,3 @@
-from analysis.performance import get_model_choice
 import numpy as np
 import json
 import os
@@ -6,80 +5,83 @@ import os
 
 BASE_DIR = '../results'
 
+
+class Table:
+    def __init__(self, experiments, summaries):
+        self.experiments = experiments
+        self.summaries = summaries
+        self.n_columns = len(experiments)
+
+        self.models = []
+        for summary in summaries:
+            self.models += summary.keys()
+        self.models = set(self.models)
+
+    def render_title(self):
+        return f'''
+            \\begin{{table}}[ht]
+            \\centering
+            \\begin{{tabular}}{{|c|c|c|}}
+            \\hline 
+            \\textbf{{Model}} & \\textbf{{Movies only}} & \\textbf{{All ratings}}   \\\\\\hline 
+        '''
+
+
+def load_summary(path):
+    if 'summary.json' not in path:
+        path = os.path.join(path, 'summary.json')
+    if not os.path.exists(path):
+        raise IOError(f'The summary file "{path}" does not exist.')
+    with open(path) as fp:
+        return json.load(fp)
+
+
+def prompt_experiments():
+    all_experiments = os.listdir(BASE_DIR)
+    print(f'Available experiments:')
+    for ex in all_experiments:
+        print(f'  - {ex}')
+
+    exs = input('Enter the experiment(s) to generate LaTeX for: ').split(' ')
+    if len(exs) == 0:
+        raise IOError('No experiments entered.')
+
+    for ex in exs:
+        if ex not in all_experiments:
+            raise IOError(f'Experiment "{ex}" not found.')
+
+    return exs
+
+
+def get_name(o):
+    if 'Movie' in label_map[o['uri']]:
+        return f'\\textbf{{{o["name"]}}}'
+    else:
+        return o["name"]
+
+
+def get_count(o):
+    return f'({o["count"]})'
+
+
 if __name__ == '__main__':
-    # Method that generates a full LaTeX row
-    # for some model
+    # Ask for the experiments to generate LaTeX for
+    with open('../data_loading/mindreader/entities_clean.json') as fp:
+        entities = json.load(fp)
 
-    model = get_model_choice()
-    runs = [r for r in os.listdir(os.path.join(BASE_DIR, model)) if not r == 'training']
-    qualifiers = [q for q in os.listdir(os.path.join(BASE_DIR, model, '1'))]
+    label_map = {}
+    for uri, name, labels in entities:
+        if uri not in label_map:
+            label_map[uri] = labels.split('|')
 
-    print(f'At which k do you want Hit@k and DCG@k?')
-    at_k = input('Enter k: ')
-    at_k = int(at_k)
+    with open('top.json') as fp:
+        top = json.load(fp)['top']
+        liked, disliked, unknown = top['liked'], top['disliked'], top['unknown']
 
-    hit_results = {
-        '4-4': [],
-        '3-4': [],
-        '2-4': [],
-        '1-4': []
-    }
+        for l, d, u in zip(liked, disliked, unknown):
+            print(f'''
+            {get_name(l)}  & {get_name(d)}  & {get_name(u)} \\\\
+            {get_count(l)} & {get_count(d)} & {get_count(u)} \\\\\\hline
+            ''')
 
-    hit_stds = {
-        '4-4': [],
-        '3-4': [],
-        '2-4': [],
-        '1-4': []
-    }
 
-    dcg_results = {
-        '4-4': [],
-        '3-4': [],
-        '2-4': [],
-        '1-4': []
-    }
-
-    dcg_stds = {
-        '4-4': [],
-        '3-4': [],
-        '2-4': [],
-        '1-4': []
-    }
-
-    for run in runs:
-        for qualifier in qualifiers:
-            file = os.path.join(BASE_DIR, model, run, qualifier)
-            if 'WKG' in file:
-                continue
-            hit_lst = [ls for k, ls in hit_results.items() if k in file][0]
-            dcg_lst = [ls for k, ls in dcg_results.items() if k in file][0]
-
-            with open(file) as fp:
-                metrics = json.load(fp)
-                hit_lst.append(metrics['hits_at_k'][at_k-1])
-                dcg_lst.append(metrics['dcgs_at_k'][at_k-1])
-
-    for k, v in hit_results.items():
-        hit_results[k] = np.mean(v)
-        hit_stds[k] = np.std(v)
-    for k, v in dcg_results.items():
-        dcg_results[k] = np.mean(v)
-        dcg_stds[k] = np.std(v)
-
-    hit_latex = f'{model.upper()}            '
-    for k, v in hit_results.items():
-        std = hit_stds[k]
-        hit_latex += f'& ${v : .3f} \\pm {std : .3f}$'
-
-    hit_latex += '\\\\\\hline'
-
-    dcg_latex = f'{model.upper()}            '
-    for k, v in dcg_results.items():
-        std = dcg_stds[k]
-        dcg_latex += f'& ${v : .3f} \\pm {std : .3f}$'
-
-    dcg_latex += '\\\\\\hline'
-
-    print(f'{model.upper()}@{at_k}:')
-    print(f'HIT: {hit_latex}')
-    print(f'DCG: {dcg_latex}')

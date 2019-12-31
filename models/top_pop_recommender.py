@@ -17,6 +17,7 @@ class TopPopRecommender(RecommenderBase):
     def __init__(self):
         super().__init__()
         self.item_count = None
+        self.optimal_params = {'x': 1}
 
     def predict(self, user, items):
         # Just give items their number of ratings, we do not care about the user

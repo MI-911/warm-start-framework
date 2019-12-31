@@ -3,12 +3,14 @@ from models.mf_joint_numpy import JointMatrixFactorization
 import numpy as np
 import random
 from loguru import logger
+from utility.utility import get_combinations
 
 
 class JointMatrixFactorizaionRecommender(RecommenderBase):
     def __init__(self, split):
         super(JointMatrixFactorizaionRecommender, self).__init__()
         self.split = split
+        self.optimal_params = None
 
     def convert_rating(self, rating):
         if rating == 1:
@@ -38,7 +40,9 @@ class JointMatrixFactorizaionRecommender(RecommenderBase):
         hor_sums = co_occurrence_matrix.sum(axis=1).reshape((1, n_items))
         ver_sums = co_occurrence_matrix.sum(axis=0).reshape((1, n_items))
 
-        M = (co_occurrence_matrix * D) / (hor_sums.T @ ver_sums)
+        M = np.divide((co_occurrence_matrix * D), (hor_sums.T @ ver_sums),
+                      out=np.zeros_like(co_occurrence_matrix),
+                      where=co_occurrence_matrix != 0)
 
         k = 5
         return M.clip(0, M - np.log(k))
@@ -48,21 +52,37 @@ class JointMatrixFactorizaionRecommender(RecommenderBase):
             yield triples[i:i + n]
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
-        hit_rates = {}
+        hit_rates = []
 
-        for n_latent_factors in [1, 2, 5, 10, 15, 25, 50]:
-            logger.debug(f'Fitting MF with {n_latent_factors} latent factors')
-            self.model = JointMatrixFactorization(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
-                                 n_latent_factors)
-            hit_rates[n_latent_factors] = self._fit(training, validation, max_iterations)
+        parameters = {
+            'relative_influence': [0.1, 0.25, 0.5, 0.75, 0.9],
+            'k': [1, 2, 5, 10, 15, 25, 50]
+        }
 
-        hit_rates = sorted(hit_rates.items(), key=lambda x: x[1], reverse=True)
-        best_n_latent_factors = [n for n, hit in hit_rates][0]
+        if self.optimal_params is None:
 
-        self.model = JointMatrixFactorization(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
-                             best_n_latent_factors)
-        logger.debug(f'Fitting MF with {best_n_latent_factors} latent factors')
-        self._fit(training, validation)
+            for params in get_combinations(parameters):
+                logger.debug(f'Fitting Joint MF with parameters: {params}')
+                self.model = JointMatrixFactorization(self.split.n_users, self.split.n_movies + self.split.n_descriptive_entities,
+                                     params["k"], params["relative_influence"])
+
+                hit_rates.append((self._fit(training, validation, max_iterations), params))
+
+            hit_rates = sorted(hit_rates, key=lambda x: x[0], reverse=True)
+            _, best_params = hit_rates[0]
+
+            self.optimal_params = best_params
+
+            self.model = JointMatrixFactorization(self.split.n_users,
+                                                  self.split.n_movies + self.split.n_descriptive_entities,
+                                                  self.optimal_params['k'], self.optimal_params['relative_influence'])
+            logger.debug(f'Found optimal parameters for Joint MF: {self.optimal_params}')
+            self._fit(training, validation)
+        else:
+            self.model = JointMatrixFactorization(self.split.n_users,
+                                                  self.split.n_movies + self.split.n_descriptive_entities,
+                                                  self.optimal_params['k'], self.optimal_params['relative_influence'])
+            self._fit(training, validation)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         # Preprocess training data

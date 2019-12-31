@@ -1,24 +1,21 @@
 from data_loading.loo_data_loader import DesignatedDataLoader
+from models.base_knn import BaseKNN
 from models.base_recommender import RecommenderBase
 import numpy as np
 from loguru import logger
 
 
-class ItemKNNRecommender(RecommenderBase):
+class ItemKNNRecommender(BaseKNN):
     def __init__(self, split):
-        super(ItemKNNRecommender).__init__()
-        self.n_entities = split.n_entities
-        self.split = split
-        self.entity_vectors = np.zeros((self.n_entities, split.n_users))
-        self.plain_entity_vectors = np.zeros((self.n_entities, split.n_users))
-        self.user_adjusted_entity_vectors = np.zeros((self.n_entities, split.n_users), dtype=np.float64)
-        self.pearson_entity_vectors = np.zeros((self.n_entities, split.n_users), dtype=np.float64)
+        super(ItemKNNRecommender, self).__init__(split, split.n_entities, split.n_users)
+        self.entity_vectors = np.zeros(())
+        self.user_adjusted_entity_vectors = np.zeros((self.n_xs, self.n_ys), dtype=np.float64)
         self.user_average = np.zeros(())
-        self.user_ratings = {}
         self.use_shrunk_similarity = True
         self.shrink_factor = 100
-        self.shrunk_similarity = np.zeros((self.n_entities, self.n_entities))
-        self.k = 1
+        self.shrunk_similarity = np.zeros((self.n_xs, self.n_xs))
+
+        self.optimal_params = None
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         """
@@ -43,27 +40,27 @@ class ItemKNNRecommender(RecommenderBase):
             user_average[user] = np.mean(self.plain_entity_vectors[:, user])
 
         # Set adjusted vectors
-        for entity in range(self.n_entities):
+        for entity in range(self.n_xs):
             indices = np.where(self.plain_entity_vectors[entity] != 0)[0]
             for user in indices:
                 self.user_adjusted_entity_vectors[entity][user] = self.plain_entity_vectors[entity][user] - user_average[user]
 
         # Calculate item average
         entity_average = {}
-        for entity in range(self.n_entities):
+        for entity in range(self.n_xs):
             entity_average[entity] = np.mean(self.plain_entity_vectors[entity])
 
         # Set pearson vectors
-        for entity in range(self.n_entities):
+        for entity in range(self.n_xs):
             indices = np.where(self.plain_entity_vectors[entity] != 0)[0]
             for user in indices:
                 self.pearson_entity_vectors[entity][user] = self.plain_entity_vectors[entity][user] - entity_average[entity]
 
         # Calculate num co-rated
-        zeros = np.zeros((self.n_entities, self.split.n_users))
-        for i in range(self.n_entities):
+        zeros = np.zeros((self.n_xs, self.split.n_users))
+        for i in range(self.n_xs):
             i_vector = self.plain_entity_vectors[i]
-            i_matrix = np.zeros((self.n_entities, self.split.n_users))
+            i_matrix = np.zeros((self.n_xs, self.split.n_users))
             i_matrix[:] = i_vector
             zeros_filter = np.not_equal(zeros, i_matrix)
             equal_filter = np.equal(i_matrix, self.plain_entity_vectors)
@@ -71,79 +68,58 @@ class ItemKNNRecommender(RecommenderBase):
 
             self.shrunk_similarity[i] = sim_i_j
 
-        last_better = True
-        best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1, 'use_shrunk': False, 'shrink_factor': 100}
-        best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0, 'use_shrunk': False, 'shrink_factor': 100}
-        iteration = 0
-        while last_better and iteration < max_iterations:
-            iteration += 1
-            cur_configuration = best_inner_config.copy()
-            # Optimize func
-            for func in ['cosine', 'adjusted_cosine', 'pearson']:
-                cur_configuration['metric'] = func
-                self.set_self(cur_configuration)
+        if self.optimal_params is None:
+            last_better = True
+            best_outer_config = {'metric': 'cosine', 'k': 10, 'hit_rate': -1, 'use_shrunk': False, 'shrink_factor': 100}
+            best_inner_config = {'metric': 'cosine', 'k': 10, 'hit_rate': 0, 'use_shrunk': False, 'shrink_factor': 100}
+            iteration = 0
+            while last_better and iteration < max_iterations:
+                iteration += 1
+                cur_configuration = best_inner_config.copy()
+                # Optimize func
+                for func in ['cosine', 'adjusted_cosine', 'pearson']:
+                    cur_configuration['metric'] = func
+                    best_inner_config = self._fit_pred(cur_configuration, best_inner_config, validation, verbose)
 
-                hit_rate = self._fit_pred(validation)
-                cur_configuration['hit_rate'] = hit_rate
+                cur_configuration = best_inner_config.copy()
 
-                if best_inner_config['hit_rate'] < hit_rate:
-                    best_inner_config = cur_configuration.copy()
+                # Optimize k
+                best_inner_config = self.optimize_k(cur_configuration, best_inner_config, validation,
+                                                    [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55], verbose)
 
-                if verbose:
-                    logger.debug(cur_configuration)
+                # Find hit without shrunk sim
+                cur_configuration['use_shrunk'] = False
+                self._set_self(cur_configuration)
+                no_shrink_hitrate = self._fit_pred(cur_configuration, best_inner_config, validation, verbose)['hit_rate']
 
-            cur_configuration = best_inner_config.copy()
+                # Optimize shrunk sim
+                cur_configuration['use_shrunk'] = True
+                for s in [1, 10, 25, 50, 100, 150, 200, 250, 300]:
+                    cur_configuration['shrink_factor'] = s
+                    best_inner_config = self._fit_pred(cur_configuration, best_inner_config, validation, verbose)
 
-            # Optimize k
-            for k in [1, 2, 4, 6, 8, 10, 15, 20, 25, 35, 45, 55]:
-                cur_configuration['k'] = k
-                self.set_self(cur_configuration)
-                hit_rate = self._fit_pred(validation)
-                cur_configuration['hit_rate'] = hit_rate
+                # Select best of with and without shrunk
+                if best_inner_config['use_shrunk'] and best_inner_config['hit_rate'] < no_shrink_hitrate:
+                    best_inner_config['use_shrunk'] = False
+                    best_inner_config['hit_rate'] = no_shrink_hitrate
 
-                if best_inner_config['hit_rate'] < hit_rate:
-                    best_inner_config = cur_configuration.copy()
+                if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
+                    best_outer_config = best_inner_config.copy()
+                    logger.debug(f'New best: {best_outer_config}')
+                else:
+                    last_better = False
 
-                if verbose:
-                    logger.debug(cur_configuration)
+            self._set_self(best_outer_config)
 
-            cur_configuration = best_inner_config.copy()
+            if verbose:
+                logger.info(f'Found best configuration: {best_outer_config}')
 
-            # Find hit without shrunk sim
-            cur_configuration['use_shrunk'] = False
-            self.set_self(cur_configuration)
-            no_shrink_hitrate = self._fit_pred(validation)
+            self.optimal_params = best_outer_config
+        else:
+            logger.debug(f'Reusing params {self.optimal_params}')
+            self._set_self(self.optimal_params)
 
-            cur_configuration['use_shrunk'] = True
-            for s in [1, 10, 25, 50, 100, 150, 200, 250, 300]:
-                cur_configuration['shrink_factor'] = s
-                self.set_self(cur_configuration)
-                hit_rate = self._fit_pred(validation)
-                cur_configuration['hit_rate'] = hit_rate
-
-                if best_inner_config['hit_rate'] < hit_rate:
-                    best_inner_config = cur_configuration.copy()
-
-                if verbose:
-                    print(cur_configuration)
-
-            # Select best of with and without shrunk
-            if best_inner_config['use_shrunk'] and best_inner_config['hit_rate'] < no_shrink_hitrate:
-                best_inner_config['use_shrunk'] = False
-                best_inner_config['hit_rate'] = no_shrink_hitrate
-
-            if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
-                best_outer_config = best_inner_config.copy()
-                print(f'New best: {best_outer_config}')
-            else:
-                last_better = False
-
-        self.set_self(best_outer_config)
-
-        if verbose:
-            logger.info(f'Found best configuration: {best_outer_config}')
-
-    def set_self(self, configuration):
+    def _set_self(self, configuration):
         self.k = configuration['k']
         if configuration['metric'] == 'cosine':
             self.entity_vectors = self.plain_entity_vectors.copy()
@@ -157,19 +133,6 @@ class ItemKNNRecommender(RecommenderBase):
             self.shrink_factor = configuration['shrink_factor']
         else:
             self.use_shrunk_similarity = False
-
-    def _fit_pred(self, validation):
-        hits = 0
-        for user, (pos_sample, neg_samples) in validation:
-            samples = neg_samples + [pos_sample]
-            score = self.predict(user, samples)
-
-            score = sorted(score.items(), key=lambda x: x[1], reverse=True)[:10]
-            score = [i for i, _ in score]
-            if pos_sample in score:
-                hits += 1
-
-        return hits / len(validation)
 
     def _cosine_similarity(self, samples, ratings, eps=1e-8):
         sample_vecs = self.entity_vectors[samples]
