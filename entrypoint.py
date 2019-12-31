@@ -24,6 +24,8 @@ from models.mf_numpy_recommender import MatrixFactorisationRecommender
 from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
 from time import time
 
+from utility.table_generator import generate_table
+
 models = {
     'transe': {
         'class': CollabTransERecommender,
@@ -82,6 +84,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), help='models to include')
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
 parser.add_argument('--debug', action='store_true', help='enable debug mode')
+parser.add_argument('--summary', action='store_true', help='generate summaries for experiments')
+parser.add_argument('--table', action='store_true', help='generate table for experiments')
 parser.add_argument('--experiments', nargs='*', type=str, help='experiments to run')
 
 
@@ -130,7 +134,7 @@ def test_model(name, model, test, reverse):
     return hr, ndcg
 
 
-def summarise(experiment_base):
+def get_summary(experiment_base):
     model_directories = []
     for directory in os.listdir(experiment_base):
         if not os.path.isdir(os.path.join(experiment_base, directory)):
@@ -188,9 +192,18 @@ def summarise(experiment_base):
                 'std': np.std(ndcgs[k]) if ndcgs[k] else np.nan
             }
 
-        results[model] = {'hr': hr, 'ndcg': ndcg}
+        if hr and ndcg:
+            results[model] = {'hr': hr, 'ndcg': ndcg}
 
     return results
+
+
+def summarise(experiment_base):
+    summary_path = os.path.join(experiment_base, 'summary.json')
+    with open(summary_path, 'w') as fp:
+        json.dump(get_summary(experiment_base), fp)
+
+        logger.debug(f'Wrote summary to {summary_path}')
 
 
 def run():
@@ -211,6 +224,30 @@ def run():
     results_base = 'results'
     if not os.path.exists(results_base):
         os.mkdir(results_base)
+
+    # If summary, then create summaries
+    if args.summary:
+        for experiment in dataset.experiments():
+            summarise(os.path.join(results_base, experiment.name))
+
+        if not args.table:
+            return
+
+    # If table, then generate table here
+    if args.table:
+        if not args.experiments:
+            logger.error('Must specify experiments to generate a table')
+
+            return
+
+        for metric in ['hr', 'ndcg']:
+            table = generate_table(results_base, args.experiments, metric)
+            if table:
+                print(table)
+            else:
+                logger.error(f'Failed to generate {metric} table')
+
+        return
 
     # Run experiments
     for experiment in dataset.experiments():
@@ -265,8 +302,7 @@ def run():
         logger.info(f'Experiment {experiment.name} took {time() - experiment_start:.2f}s')
 
         # Summarise the experiment in a single file
-        with open(os.path.join(experiment_base, 'summary.json'), 'w') as fp:
-            json.dump(summarise(experiment_base), fp)
+        summarise(experiment_base)
 
 
 if __name__ == '__main__':
