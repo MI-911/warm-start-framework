@@ -31,6 +31,8 @@ pretty_map = {
     'ntp-substituting-3-4': '3/4',
     'ntp-substituting-2-4': '2/4',
     'ntp-substituting-1-4': '1/4',
+    'mf': 'MF',
+    'joint-mf': 'Joint-MF'
 }
 
 
@@ -46,7 +48,7 @@ def generate_table(results_base, experiments: List[str], metric='hr', k_values=N
     n_columns = 1 + len(experiments)
     if not k_values:
         k_values = ['5', '10']
-    table = """\\begin{table}[ht!]\n\t\\centering\n"""
+    table = """\\begin{table*}[ht!]\n\t\\centering\n"""
 
     # For each experiment, get summary files
     experiment_summary = defaultdict(dict)
@@ -133,6 +135,6 @@ def generate_table(results_base, experiments: List[str], metric='hr', k_values=N
     # Add footer
     table += "\t\t" + line() + "\n"
     table += "\t\\end{tabular}\n"
-    table += "\\end{table}"
+    table += "\\end{table*}"
 
     return table
