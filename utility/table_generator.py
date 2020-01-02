@@ -96,7 +96,7 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
     if test:
         columns.append('& \\textit{p}-value')
 
-    table += "\t\t\\textbf{Model} " + ' '.join(columns) + "\n"
+    table += "\t\t\\multicolumn{1}{c|}{Models} " + ' '.join(columns) + "\n"
     table += "\t\t" + line() + "\n"
 
     # Get model-major results
@@ -116,7 +116,7 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
             if mean > highest_experiment_mean[experiment]:
                 highest_experiment_mean[experiment] = mean
 
-    for model in models:
+    for idx, model in enumerate(models):
         result_list = []
 
         for experiment in experiments:
@@ -160,12 +160,17 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
             p_str = f"{p:.3f}" if p >= 0.001 else "<10^{-3}"
             result_list.append(f" & $" + p_str + "$")
 
-        table += "\t\t\\\\ " + pretty(model) + ''.join(result_list) + "\n"
+        table += "\t\t"
+
+        # If not the first model row, add new line
+        if idx:
+            table += "\\\\"
+        table += " " + pretty(model) + ''.join(result_list) + "\n"
 
     # Add footer
     table += "\t\t" + line() + "\n"
-    table += "\t\\caption{" + metric.upper() + "@" + k_value + ".}\n"
     table += "\t\\end{tabular}\n"
+    table += "\t\\caption{" + metric.upper() + "@" + k_value + ".}\n"
     table += "\\end{table*}"
 
     return table
