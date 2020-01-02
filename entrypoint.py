@@ -87,6 +87,7 @@ parser.add_argument('--debug', action='store_true', help='enable debug mode')
 parser.add_argument('--summary', action='store_true', help='generate summaries for experiments')
 parser.add_argument('--table', action='store_true', help='generate table for experiments')
 parser.add_argument('--experiments', nargs='*', type=str, help='experiments to run')
+parser.add_argument('--test', nargs='*', type=str, help='experiments to pairwise t-test on')
 
 
 def instantiate(parameters, split):
@@ -235,17 +236,26 @@ def run():
 
     # If table, then generate table here
     if args.table:
+        if args.test and len(args.test) != 2:
+            logger.error('Must specify exactly two experiments to test')
+
+            return
+
         if not args.experiments:
             logger.error('Must specify experiments to generate a table')
 
             return
 
         for metric in ['hr', 'ndcg']:
-            table = generate_table(results_base, args.experiments, metric)
+            table = generate_table(results_base, args.experiments, metric, test=args.test)
             if table:
                 print(table)
             else:
                 logger.error(f'Failed to generate {metric} table')
+
+        return
+    elif args.test:
+        logger.error('Cannot specify test without generating table')
 
         return
 
