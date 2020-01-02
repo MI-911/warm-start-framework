@@ -236,7 +236,7 @@ def run():
 
     # If table, then generate table here
     if args.table:
-        if args.test and len(args.test != 2):
+        if args.test and len(args.test) != 2:
             logger.error('Must specify exactly two experiments to test')
 
             return
@@ -247,7 +247,7 @@ def run():
             return
 
         for metric in ['hr', 'ndcg']:
-            table = generate_table(results_base, args.experiments, metric)
+            table = generate_table(results_base, args.experiments, metric, test=args.test)
             if table:
                 print(table)
             else:
