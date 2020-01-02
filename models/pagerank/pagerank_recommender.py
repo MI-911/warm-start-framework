@@ -1,6 +1,7 @@
 import operator
 from csv import DictReader
 
+from loguru import logger
 from networkx import pagerank_scipy, Graph
 
 from models.base_recommender import RecommenderBase
@@ -46,13 +47,12 @@ class PageRankRecommender(RecommenderBase):
     def __init__(self, only_positive=False):
         super().__init__()
         self.graph = None
-        self.alpha = 0.85
         self.only_positive = only_positive
         self.user_ratings = dict()
-        self.optimal_params = {'alpha': self.alpha}
+        self.optimal_params = None
 
     def predict(self, user, items):
-        return self._scores(self.alpha, self.get_source_nodes(user), items)
+        return self._scores(self.optimal_params['alpha'], self.get_source_nodes(user), items)
 
     def construct_graph(self, training):
         raise NotImplementedError
@@ -87,3 +87,31 @@ class PageRankRecommender(RecommenderBase):
             self.user_ratings[user] = ratings
 
         self.graph = self.construct_graph(training)
+
+        if not self.optimal_params:
+            alpha_ranges = [0.25, 0.45, 0.65, 0.85]
+            alpha_hit = dict()
+
+            for alpha in alpha_ranges:
+                logger.debug(f'Trying alpha value {alpha}')
+
+                hits = 0
+                count = 0
+
+                for user, validation_tuple in validation:
+                    source_nodes = self.get_source_nodes(user)
+                    if not source_nodes:
+                        continue
+
+                    hits += self._validate(alpha, source_nodes, *validation_tuple)
+                    count += 1
+
+                hit_ratio = hits / count
+                alpha_hit[alpha] = hit_ratio
+
+                logger.debug(f'Hit ratio of {alpha}: {hit_ratio}')
+
+            best = max(alpha_hit.items(), key=operator.itemgetter(1))
+            logger.info(f'Best: {best}')
+
+            self.optimal_params = {'alpha': best[0]}
