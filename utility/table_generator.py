@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import List
 
 from loguru import logger
+from scipy.stats import ttest_ind
 
 pretty_map = {
     'ndcg': 'NDCG',
@@ -44,10 +45,12 @@ def pretty(item):
     return pretty_map.get(item, item)
 
 
-def generate_table(results_base, experiments: List[str], metric='hr', k_values=None):
+def generate_table(results_base, experiments: List[str], metric='hr', test=None, k_value='10'):
     n_columns = 1 + len(experiments)
-    if not k_values:
-        k_values = ['5', '10']
+
+    if test:
+        n_columns += 1
+
     table = """\\begin{table*}[ht!]\n\t\\centering\n"""
 
     # For each experiment, get summary files
@@ -83,58 +86,91 @@ def generate_table(results_base, experiments: List[str], metric='hr', k_values=N
     models = sorted(models, key=pretty)
 
     # Add header
-    column_layout = '|'.join('c' for _ in range(n_columns))
-    table += "\t\\begin{tabular}{|" + column_layout + "|}\n"
+    column_layout = '|'.join('l' if not idx else 'c' for idx in range(n_columns))
+    table += "\t\\begin{tabular}{" + column_layout + "}\n"
 
     # Add first row with model names
     table += "\t\t\\hline\n"
-    model_selection = [f'& {pretty(experiment)}' for experiment in experiments]
-    table += "\t\t\\textbf{Model} " + ' '.join(model_selection) + "\n"
+    columns = [f'& {pretty(experiment)}' for experiment in experiments]
 
-    # Add row for each k-value
-    for k_value in k_values:
-        table += "\t\t" + line() + "\\multicolumn{" + str(n_columns) + "}{|c|}{\\textbf{" + pretty(metric) + "@" + str(k_value) + "}}\n"
+    if test:
+        columns.append('& \\textit{p}-value')
 
-        # Get model-major results
-        model_results = defaultdict(dict)
-        highest_experiment_mean = defaultdict(float)
-        for experiment, summary in experiment_summary.items():
-            for model in models:
-                if model not in summary:
-                    continue
+    table += "\t\t\\multicolumn{1}{c|}{Models} " + ' '.join(columns) + "\n"
+    table += "\t\t" + line() + "\n"
 
-                mean = summary[model][metric][k_value]['mean']
-                model_results[model][experiment] = {
-                    'mean': mean,
-                    'std': summary[model][metric][k_value]['std']
-                }
-
-                if mean > highest_experiment_mean[experiment]:
-                    highest_experiment_mean[experiment] = mean
-
+    # Get model-major results
+    model_results = defaultdict(dict)
+    highest_experiment_mean = defaultdict(float)
+    for experiment, summary in experiment_summary.items():
         for model in models:
-            result_list = []
+            if model not in summary:
+                continue
 
-            for experiment in experiments:
-                if experiment not in model_results[model]:
-                    result_list.append(' & N/A')
+            mean = summary[model][metric][k_value]['mean']
+            model_results[model][experiment] = {
+                'mean': mean,
+                'std': summary[model][metric][k_value]['std']
+            }
 
-                    continue
+            if mean > highest_experiment_mean[experiment]:
+                highest_experiment_mean[experiment] = mean
 
-                mean = model_results[model][experiment]['mean']
-                std = model_results[model][experiment]['std']
+    for idx, model in enumerate(models):
+        result_list = []
 
-                base = f'{mean:.2f} \pm {std:.2f}'
-                if mean >= highest_experiment_mean[experiment]:
-                    result_list.append(" & $\\mathbf{" + base + "}$")
-                else:
-                    result_list.append(" & $" + base + "$")
+        for experiment in experiments:
+            if experiment not in model_results[model]:
+                result_list.append(' & N/A')
 
-            table += "\t\t" + line() + " " + pretty(model) + ''.join(result_list) + "\n"
+                continue
+
+            mean = model_results[model][experiment]['mean']
+            std = model_results[model][experiment]['std']
+
+            base = f'{mean:.2f} \pm {std:.2f}'
+            if mean >= highest_experiment_mean[experiment]:
+                result_list.append(" & $\\mathbf{" + base + "}$")
+            else:
+                result_list.append(" & $" + base + "$")
+
+        if test:
+            # Get intersecting splits
+            metrics = list()
+            for experiment in test:
+                model_splits_path = os.path.join(os.path.join(results_base, experiment), model)
+                model_splits = sorted([file for file in os.listdir(model_splits_path) if file != 'params.json'])
+
+                model_metrics = list()
+                for split in model_splits:
+                    split_path = os.path.join(model_splits_path, split)
+
+                    with open(split_path, 'r') as fp:
+                        model_metrics.append(json.load(fp)[metric][k_value])
+
+                metrics.append(model_metrics)
+
+            # Cutoff to minimum length
+            min_length = len(min(metrics, key=len))
+            metrics = [measure[:min_length] for measure in metrics]
+
+            # t-test
+            p = ttest_ind(*metrics)[1]
+
+            p_str = f"{p:.3f}" if p >= 0.001 else "<10^{-3}"
+            result_list.append(f" & $" + p_str + "$")
+
+        table += "\t\t"
+
+        # If not the first model row, add new line
+        if idx:
+            table += "\\\\"
+        table += " " + pretty(model) + ''.join(result_list) + "\n"
 
     # Add footer
     table += "\t\t" + line() + "\n"
     table += "\t\\end{tabular}\n"
+    table += "\t\\caption{" + metric.upper() + "@" + k_value + ".}\n"
     table += "\\end{table*}"
 
     return table
