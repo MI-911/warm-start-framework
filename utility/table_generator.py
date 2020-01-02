@@ -107,7 +107,7 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
             if model not in summary:
                 continue
 
-            mean = summary[model][metric][k_value]['mean']
+            mean = round(summary[model][metric][k_value]['mean'], 2)
             model_results[model][experiment] = {
                 'mean': mean,
                 'std': summary[model][metric][k_value]['std']
