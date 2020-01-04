@@ -114,6 +114,7 @@ def generate_without_top_pop(filter_unkowns=False):
                     print(e)
                     n_attempts += 1
 
+
 def _generate_dataset(args): 
     (experiment, args), (filter_unknowns, without_top_pop, i) = args
     experiment_dir = join(f'datasets{"" if filter_unknowns else "_with_unknowns"}', experiment)
@@ -156,7 +157,7 @@ def _generate_dataset(args):
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):
     for i in range(n_experiments):
         with Pool(8) as p: 
-            p.map(_generate_dataset, [((args), (filter_unknowns, without_top_pop, i)) for args in experiments])
+            p.map(_generate_dataset, [(args, (filter_unknowns, without_top_pop, i)) for args in experiments])
 
 
 if __name__ == '__main__':
