@@ -20,9 +20,11 @@ from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
-from models.mf_recommender import MatrixFactorisationRecommender
-from models.joint_mf_recommender import JointMatrixFactorisationRecommender
+from models.mf_numpy_recommender import MatrixFactorisationRecommender
+from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
 from time import time
+
+from utility.table_generator import generate_table
 
 models = {
     'transe': {
@@ -71,9 +73,9 @@ models = {
         'split': True
     },
     'joint-mf': {
-        'class': JointMatrixFactorisationRecommender,
+        'class': JointMatrixFactorizaionRecommender,
         'split': True
-    },
+    }
 }
 
 upper_cutoff = 50
@@ -82,7 +84,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--include', nargs='*', type=str, choices=models.keys(), help='models to include')
 parser.add_argument('--exclude', nargs='*', type=str, choices=models.keys(), help='models to exclude')
 parser.add_argument('--debug', action='store_true', help='enable debug mode')
+parser.add_argument('--summary', action='store_true', help='generate summaries for experiments')
+parser.add_argument('--table', action='store_true', help='generate table for experiments')
 parser.add_argument('--experiments', nargs='*', type=str, help='experiments to run')
+parser.add_argument('--test', nargs='*', type=str, help='experiments to pairwise t-test on')
 
 
 def instantiate(parameters, split):
@@ -130,7 +135,7 @@ def test_model(name, model, test, reverse):
     return hr, ndcg
 
 
-def summarise(experiment_base):
+def get_summary(experiment_base):
     model_directories = []
     for directory in os.listdir(experiment_base):
         if not os.path.isdir(os.path.join(experiment_base, directory)):
@@ -150,7 +155,7 @@ def summarise(experiment_base):
 
         # Load all splits for this model
         for file in os.listdir(model_base):
-            if not file.endswith('.json'):
+            if (not file.endswith('.json')) or file == 'params.json':
                 continue
 
             with open(os.path.join(model_base, file), 'r') as fp:
@@ -188,9 +193,18 @@ def summarise(experiment_base):
                 'std': np.std(ndcgs[k]) if ndcgs[k] else np.nan
             }
 
-        results[model] = {'hr': hr, 'ndcg': ndcg}
+        if hr and ndcg:
+            results[model] = {'hr': hr, 'ndcg': ndcg}
 
     return results
+
+
+def summarise(experiment_base):
+    summary_path = os.path.join(experiment_base, 'summary.json')
+    with open(summary_path, 'w') as fp:
+        json.dump(get_summary(experiment_base), fp)
+
+        logger.debug(f'Wrote summary to {summary_path}')
 
 
 def run():
@@ -212,6 +226,39 @@ def run():
     if not os.path.exists(results_base):
         os.mkdir(results_base)
 
+    # If summary, then create summaries
+    if args.summary:
+        for experiment in dataset.experiments():
+            summarise(os.path.join(results_base, experiment.name))
+
+        if not args.table:
+            return
+
+    # If table, then generate table here
+    if args.table:
+        if args.test and len(args.test) != 2:
+            logger.error('Must specify exactly two experiments to test')
+
+            return
+
+        if not args.experiments:
+            logger.error('Must specify experiments to generate a table')
+
+            return
+
+        for metric in ['hr', 'ndcg']:
+            table = generate_table(results_base, args.experiments, metric, test=args.test)
+            if table:
+                print(table)
+            else:
+                logger.error(f'Failed to generate {metric} table')
+
+        return
+    elif args.test:
+        logger.error('Cannot specify test without generating table')
+
+        return
+
     # Run experiments
     for experiment in dataset.experiments():
         logger.info(f'Starting experiment {experiment.name}')
@@ -223,6 +270,7 @@ def run():
             os.mkdir(experiment_base)
 
         # Run all splits
+        c = 0
         for split in experiment.splits():
             logger.info(f'Starting split {split.name}')
             split_start = time()
@@ -232,6 +280,7 @@ def run():
                 # Instantiate model
                 model_parameters = models[model]
                 recommender = instantiate(model_parameters, split)
+
                 if not recommender:
                     logger.error(f'No parameters specified for {model}')
 
@@ -243,9 +292,16 @@ def run():
                     os.mkdir(model_base)
 
                 # Fit and test
-                logger.debug(f'Fitting {model}')
+                logger.info(f'Starting {model}')
                 start_time = time()
                 try:
+                    params = get_params(model_base)
+                    if not params:
+                        logger.debug(f'Tuning hyper parameters for {model}')
+                    else:
+                        logger.debug(f'Reusing optimal parameters for {model}: {params}')
+                        recommender.optimal_params = params
+
                     recommender.fit(split.training, split.validation)
                     hr, ndcg = test_model(model, recommender, split.testing, model_parameters.get('descending', True))
                 except Exception as e:
@@ -257,16 +313,28 @@ def run():
                 # Save results to split file
                 with open(os.path.join(model_base, split.name), 'w') as fp:
                     json.dump({'hr': hr, 'ndcg': ndcg}, fp)
+                with open(os.path.join(model_base, 'params.json'), 'w') as fp:
+                    json.dump(recommender.optimal_params, fp)
 
                 # Debug
                 logger.info(f'{model} ({time() - start_time:.2f}s): {hr[10] * 100:.2f}% HR, {ndcg[10] * 100:.2f}% NDCG')
+
+                c += 1
 
             logger.info(f'Split {split.name} took {time() - split_start:.2f}s')
         logger.info(f'Experiment {experiment.name} took {time() - experiment_start:.2f}s')
 
         # Summarise the experiment in a single file
-        with open(os.path.join(experiment_base, 'summary.json'), 'w') as fp:
-            json.dump(summarise(experiment_base), fp)
+        summarise(experiment_base)
+
+
+def get_params(model_base):
+    path = os.path.join(model_base, 'params.json')
+    if os.path.exists(path):
+        with open(path) as fp:
+            return json.load(fp)
+
+    return None
 
 
 if __name__ == '__main__':

@@ -41,7 +41,6 @@ class Dataset:
                     raise RuntimeError(f'Dataset path {path} does not contain {required} in meta data')
 
             self.e_idx_map = data['e_idx_map']
-            self.n_users = data['n_users']
 
     def __str__(self):
         return self.name

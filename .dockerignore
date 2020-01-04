@@ -7,3 +7,4 @@
 /venv
 /new
 *.tar.gz
+/datasets
