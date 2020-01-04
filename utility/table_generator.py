@@ -98,7 +98,7 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
         columns.append('& \\textit{p}-value')
 
     table += "\t\t\\multicolumn{1}{c|}{Models} " + ' '.join(columns) + "\n"
-    table += "\t\t" + line() + "\n"
+    table += "\t\t" + line() + " "
 
     # Get model-major results
     model_results = defaultdict(dict)
