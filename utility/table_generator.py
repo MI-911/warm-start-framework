@@ -32,7 +32,7 @@ pretty_map = {
     'ntp-substituting-3-4': '3/4',
     'ntp-substituting-2-4': '2/4',
     'ntp-substituting-1-4': '1/4',
-    'wtp-substituting-0-1': '1/4 (no entities)',
+    'wtp-substituting-1-0': '1/4 (no entities)',
     'mf': 'MF',
     'joint-mf': 'Joint-MF'
 }
