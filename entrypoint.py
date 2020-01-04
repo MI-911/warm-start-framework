@@ -9,7 +9,7 @@ import numpy as np
 from loguru import logger
 
 from experiments.experiment import Dataset
-from metrics.metrics import ndcg_at_k
+from experiments.metrics import ndcg_at_k
 from models.bpr_recommender import BPRRecommender
 from models.item_knn_recommender import ItemKNNRecommender
 from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
