@@ -8,65 +8,15 @@ from time import time
 from loguru import logger
 
 experiments = [
-    ['substituting-4-4', {
-        'movie_to_entity_ratio': 4 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': True,
-        'n_negative_samples': 100
-    }],
-    ['substituting-3-4', {
-        'movie_to_entity_ratio': 3 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': True,
-        'n_negative_samples': 100
-    }],
-    ['substituting-2-4', {
-        'movie_to_entity_ratio': 2 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': True,
-        'n_negative_samples': 100
-    }],
-    ['substituting-1-4', {
-        'movie_to_entity_ratio': 1 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': True,
-        'n_negative_samples': 100
-    }],
-
-    ['substituting-4-0', {
-        'movie_to_entity_ratio': 4 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': False,
-        'n_negative_samples': 100
-    }],
-    ['substituting-3-0', {
-        'movie_to_entity_ratio': 3 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': False,
-        'n_negative_samples': 100
-    }],
-    ['substituting-2-0', {
-        'movie_to_entity_ratio': 2 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': False,
-        'n_negative_samples': 100
-    }],
-    ['substituting-1-0', {
-        'movie_to_entity_ratio': 1 / 4,
-        'keep_all_ratings': False,
-        'replace_movies_with_descriptive_entities': False,
-        'n_negative_samples': 100
-    }],
-
     ['all_movies', {
-        'movie_to_entity_ratio': 4 / 4,
+        'movie_to_entity_ratio': 1,
         'keep_all_ratings': True,
         'replace_movies_with_descriptive_entities': False,
         'n_negative_samples': 100,
         'movies_only': True
     }],
     ['all_entities', {
-        'movie_to_entity_ratio': 4 / 4,
+        'movie_to_entity_ratio': 1,
         'keep_all_ratings': True,
         'replace_movies_with_descriptive_entities': False,
         'n_negative_samples': 100,
@@ -96,7 +46,7 @@ def generate_with_top_pop(filter_unkowns=False):
                     args['random_seed'] = random_seed
                     loader = DesignatedDataLoader.load_from(
                         join('../data_loading', 'mindreader'),
-                        min_num_entity_ratings=2,
+                        min_num_entity_ratings=1,
                         filter_unknowns=filter_unkowns,
                         unify_user_indices=False,
                         random_seed=random_seed
@@ -141,7 +91,7 @@ def generate_without_top_pop(filter_unkowns=False):
                     args['without_top_pop'] = True
                     loader = DesignatedDataLoader.load_from(
                         join('./data_loading', 'mindreader'),
-                        min_num_entity_ratings=2,
+                        min_num_entity_ratings=1,
                         filter_unknowns=filter_unkowns,
                         unify_user_indices=False,
                         random_seed=random_seed
@@ -203,7 +153,6 @@ def _generate_dataset(args):
             print(e)
 
 
-
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):
     for i in range(n_experiments):
         with Pool(8) as p: 
@@ -212,4 +161,4 @@ def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results',
 
 if __name__ == '__main__':
     generate(filter_unknowns=True, without_top_pop=True, base_dir='./datasets')
-    generate(filter_unknowns=True, without_top_pop=False, base_dir='./datasets')
+    # generate(filter_unknowns=True, without_top_pop=False, base_dir='./datasets')

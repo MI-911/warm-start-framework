@@ -181,7 +181,7 @@ class DesignatedDataLoader(DataLoader):
 
     def sample_negative(self, user, movie_counts, n, pos_sample):
         seen_movies = set([r.e_idx for r in self.ratings if r.is_movie_rating and r.u_idx == user] + [pos_sample])
-        all_movies = set([m for m, count in movie_counts.items() if count > 0])
+        all_movies = set([m for m, count in movie_counts.items() if count > 5])
         unseen_movies = list(all_movies - seen_movies)
         self.random.shuffle(unseen_movies)
 
