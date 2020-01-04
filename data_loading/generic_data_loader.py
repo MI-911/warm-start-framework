@@ -169,6 +169,14 @@ class DataLoader:
 
 
 if __name__ == '__main__':
-    data_loader = DataLoader.load_from('./mindreader', filter_unknowns=True)
+    data_loader = DataLoader.load_from('./mindreader', 
+        filter_unknowns=True,
+        min_num_entity_ratings=1,
+        unify_user_indices=False
+    )
     with open('meta.json', 'w') as fp: 
-        json.dump(data_loader.e_idx_map, fp)
+        json.dump({
+            'e_idx_map': data_loader.e_idx_map,
+            'n_users': data_loader.n_users
+        }, fp)
+    
