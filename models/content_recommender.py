@@ -17,3 +17,6 @@ class ContentRecommender(RecommenderBase):
     def predict(self, user, items):
         # Get user ratings
         user_ratings = self.training[user]
+
+    def get_vector_length(self):
+        return max(set(self.entity_idx.values())) + 1

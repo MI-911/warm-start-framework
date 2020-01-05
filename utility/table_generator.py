@@ -16,6 +16,8 @@ pretty_map = {
     'user-knn': 'User kNN',
     'transe': 'TransE',
     'transe-kg': 'TransE-KG',
+    'transh': 'TransH',
+    'transh-kg': 'TransH-KG',
     'random': 'Random',
     'top-pop': 'TopPop',
     'svd': 'SVD',

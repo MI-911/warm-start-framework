@@ -5,7 +5,7 @@
 /old
 /results
 /venv
-/new
+/.venv
 *.tar.gz
 /datasets
 /.data
