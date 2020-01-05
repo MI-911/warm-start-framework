@@ -17,10 +17,10 @@ class BPRRecommender(RecommenderBase):
         if not self.optimal_params:
             parameters = {
                 'reg': [0.001],
-                'learning_rate': [0.1],
-                'n_iters': [250],
+                'learning_rate': [0.1, 0.2],
+                'n_iters': [300],
                 'n_factors': [1, 2],
-                'batch_size': [16, 32],
+                'batch_size': [16],
                 'only_positive': [True, False]
             }
 
