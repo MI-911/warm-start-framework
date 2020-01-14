@@ -4,7 +4,9 @@ from collections import defaultdict
 from typing import List
 
 from loguru import logger
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_rel
+
+alpha = 0.01
 
 pretty_map = {
     'ndcg': 'NDCG',
@@ -48,11 +50,32 @@ def pretty(item):
     return pretty_map.get(item, item)
 
 
+def get_p_val(results_base, model, metric, k_value, a, b):
+    # Get intersecting splits
+    metrics = list()
+    for experiment in [a, b]:
+        model_splits_path = os.path.join(os.path.join(results_base, experiment), model)
+        model_splits = sorted([file for file in os.listdir(model_splits_path) if file != 'params.json'])
+
+        model_metrics = list()
+        for split in model_splits:
+            split_path = os.path.join(model_splits_path, split)
+
+            with open(split_path, 'r') as fp:
+                model_metrics.append(json.load(fp)[metric][k_value])
+
+        metrics.append(model_metrics)
+
+    # Cutoff to minimum length
+    min_length = len(min(metrics, key=len))
+    metrics = [measure[:min_length] for measure in metrics]
+
+    # t-test
+    return ttest_rel(*metrics)[1]
+
+
 def generate_table(results_base, experiments: List[str], metric='hr', test=None, k_value='10'):
     n_columns = 1 + len(experiments)
-
-    if test:
-        n_columns += 1
 
     table = """\\begin{table*}[ht!]\n\t\\centering\n"""
 
@@ -96,9 +119,6 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
     table += "\t\t\\hline\n"
     columns = [f'& {pretty(experiment)}' for experiment in experiments]
 
-    if test:
-        columns.append('& \\textit{p}-value')
-
     table += "\t\t\\multicolumn{1}{c|}{Models} " + ' '.join(columns) + "\n"
     table += "\t\t" + line() + "\n"
 
@@ -132,36 +152,13 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
             std = model_results[model][experiment]['std']
 
             base = f'{mean:.2f} \pm {std:.2f}'
+            significant = ''
+            if test and experiment != test:
+                significant = '^*' if get_p_val(results_base, model, metric, k_value, test, experiment) < alpha else ''
             if mean >= highest_experiment_mean[experiment]:
-                result_list.append(" & $\\mathbf{" + base + "}$")
+                result_list.append(" & $\\mathbf{" + base + significant + "}$")
             else:
-                result_list.append(" & $" + base + "$")
-
-        if test:
-            # Get intersecting splits
-            metrics = list()
-            for experiment in test:
-                model_splits_path = os.path.join(os.path.join(results_base, experiment), model)
-                model_splits = sorted([file for file in os.listdir(model_splits_path) if file != 'params.json'])
-
-                model_metrics = list()
-                for split in model_splits:
-                    split_path = os.path.join(model_splits_path, split)
-
-                    with open(split_path, 'r') as fp:
-                        model_metrics.append(json.load(fp)[metric][k_value])
-
-                metrics.append(model_metrics)
-
-            # Cutoff to minimum length
-            min_length = len(min(metrics, key=len))
-            metrics = [measure[:min_length] for measure in metrics]
-
-            # t-test
-            p = ttest_ind(*metrics)[1]
-
-            p_str = f"{p:.3f}" if p >= 0.001 else "<10^{-3}"
-            result_list.append(f" & $" + p_str + "$")
+                result_list.append(" & $" + base + significant + "$")
 
         table += "\t\t"
 

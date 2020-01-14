@@ -1,6 +1,7 @@
 # Ignore folders
 .idea
 .venv
+new
 
 # Ignore files
 *.csv
