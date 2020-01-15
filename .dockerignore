@@ -1,0 +1,15 @@
+/data_loading/mindreader
+/analysis
+/data
+/notebooks
+/old
+/results
+/venv
+/.venv
+*.tar.gz
+/datasets
+/.data
+/notebooks
+/.git
+/.results
+/new

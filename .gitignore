@@ -1,8 +1,13 @@
 # Ignore folders
 .idea
-venv
+.venv
+new
 
 # Ignore files
 *.csv
 *.json
 *.pyc
+
+notebooks/bpr.ipynb~
+
+*.gz
