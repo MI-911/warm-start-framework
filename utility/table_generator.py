@@ -6,7 +6,7 @@ from typing import List
 from loguru import logger
 from scipy.stats import ttest_rel
 
-alpha = 0.01
+alpha = 0.05
 
 pretty_map = {
     'ndcg': 'NDCG',
