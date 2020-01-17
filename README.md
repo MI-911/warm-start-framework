@@ -13,4 +13,4 @@ From the `data_loading/download_raw_data.py` scripts, run `download_data()` to d
 
 `docker run -d -v ${PWD}/data:/app/data -v ${PWD}/results:/app/results mi911/runner --experiments wtp-all_movies wtp-all_entities --debug`
 
-In the example above we run to experiments, `wtp-all_movies` and `wtp-all_entities`. This command will mount `${PWD}/data`, which should contain the experiments. The available data can be found [here](http://mindreader.tech/data.tar.gz).
+In the example above we run two experiments, `wtp-all_movies` and `wtp-all_entities`, using all available models. This command will mount `${PWD}/data`, which should contain these two experiments. The available data can be found [here](http://mindreader.tech/data.tar.gz).
