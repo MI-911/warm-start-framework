@@ -1,7 +1,7 @@
 requests
 pandas
 numpy
-torch
+# torch
 matplotlib
 seaborn
 tqdm

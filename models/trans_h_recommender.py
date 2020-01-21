@@ -1,5 +1,5 @@
 from models.base_recommender import RecommenderBase
-from models.other_trans_e import TransE
+from models.trans_h import TransH
 from data_loading.generic_data_loader import Rating
 import numpy as np
 import torch as tt
@@ -83,6 +83,7 @@ def evaluate_hit(model, user_samples, n=10):
         # Each entry is (user, (pos_sample, neg_samples))
         ranks = []
         dcgs = []
+
         for user, (pos_sample, neg_samples) in user_samples:
             fast_rank = model.fast_rank(user, 1, pos_sample, neg_samples)
             fast_dcg = dcg(fast_rank, n=n)
@@ -114,7 +115,7 @@ def load_kg_triples(split):
         # Reverse
         not_r = f'not-{r}'
         if not_r not in r_idx_map: 
-            r_idx_map[not_r] = rc 
+            r_idx_map[not_r] = rc
             rc += 1
         
         indexed_triples.append((h, r_idx_map[r], t))
@@ -176,9 +177,9 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
     return corrupted
 
 
-class CollabTransERecommender(RecommenderBase):
+class CollabTransHRecommender(RecommenderBase):
     def __init__(self, split):
-        super(CollabTransERecommender, self).__init__()
+        super(CollabTransHRecommender, self).__init__()
 
         self.n_entities = split.n_users + split.n_movies + split.n_descriptive_entities
         self.n_relations = 3  # Like, dislike, unknown
@@ -196,19 +197,19 @@ class CollabTransERecommender(RecommenderBase):
         self.best_hit = 0
         self.best_k = None
         self.best_model = None
-
+        
         if self.optimal_params is None:
             hit_rates = {}
             for n_latent_factors in [50, 100, 250]:
-                logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
-                self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
+                logger.debug(f'Fitting TransH with {n_latent_factors} latent factors')
+                self.model = TransH(self.n_entities, self.n_relations, self.margin, n_latent_factors)
                 self._fit(training, validation)
 
             self.optimal_params = {'k': self.best_k}
 
-        self.model = TransE(self.n_entities, self.n_relations, self.margin, self.optimal_params['k'])
+        self.model = TransH(self.n_entities, self.n_relations, self.margin, self.optimal_params['k'])
 
-        logger.info(f'Fitting TransE with {self.optimal_params["k"]} latent factors')
+        logger.info(f'Fitting TransH with {self.optimal_params["k"]} latent factors')
         self._fit(training, validation, max_iterations, verbose)
 
     def _fit(self, training, validation, max_iterations=100, verbose=True):
@@ -245,10 +246,11 @@ class CollabTransERecommender(RecommenderBase):
             if epoch % 1 == 0:
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransE with hit {_hit}')
+                    logger.debug(f'Found new best TransH with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
+
                 val_hit_history.append(_hit)
                 val_dcg_history.append(_dcg)
 
@@ -274,12 +276,29 @@ class CollabTransERecommender(RecommenderBase):
 
                 loss = tt.relu(self.model.margin + p_distance - n_distance).sum()
 
+                e_embeddings = self.model.entity_embeddings(tt.cat([p_h, p_t, n_h, n_t]))
+                r_embeddings = self.model.relation_embeddings(tt.cat([p_r, n_r]))
+                norm_embeddings = self.model.norm_embeddings(tt.cat([p_r, n_r]))
+
+                # Calculate the orthogonal loss
+                loss += tt.sum(tt.sum(norm_embeddings * r_embeddings, dim=1, keepdim=True) ** 2 / tt.sum(r_embeddings ** 2, dim=1, keepdim=True))
+
+                # Calculate the projection loss
+                e_norm = tt.sum(e_embeddings ** 2, dim=1, keepdim=True)
+                r_norm = tt.sum(r_embeddings ** 2, dim=1, keepdim=True)
+
+                loss += tt.sum(tt.max(e_norm - tt.tensor(1.0).to(self.model.device), tt.tensor(0.0).to(self.model.device)))
+                loss += tt.sum(tt.max(r_norm - tt.tensor(1.0).to(self.model.device), tt.tensor(0.0).to(self.model.device)))
+
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
 
+                # Normalise hyperplanes
+                self.model.normalize_hyperplanes(p_r)
+
         # Return the latest average Hit@k, use for grid search
-        self.model = self.best_model 
+        self.model = self.best_model
         return np.mean(val_hit_history[-10:])
 
     def predict(self, user, items):
@@ -289,12 +308,12 @@ class CollabTransERecommender(RecommenderBase):
             return self.model.predict_movies_for_user(user, relation_idx=1, movie_indices=items)
 
 
-class KGTransERecommender(RecommenderBase):
+class KGTransHRecommender(RecommenderBase):
     def __init__(self, split):
-        super(KGTransERecommender, self).__init__()
+        super(KGTransHRecommender, self).__init__()
 
         self.n_entities = split.n_users + split.n_movies + split.n_descriptive_entities
-        self.n_relations = 3 + 7 + 7  # Like, dislike, unknown
+        self.n_relations = 3 + 7 + 7  # Like, dislike, unknown + reverse
 
         self.with_kg_triples = True
         self.with_standard_corruption = True
@@ -304,26 +323,26 @@ class KGTransERecommender(RecommenderBase):
         self.margin = 1.0
         self.optimal_params = None
 
-    def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
+    def fit(self, training, validation, max_iterations=5, verbose=True, save_to='./'):
         self.best_hit = 0
-        self.best_k = None
         self.best_model = None
 
         if self.optimal_params is None:
             hit_rates = {}
-            for n_latent_factors in [50, 100, 250]:
-                logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
-                self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
+            for n_latent_factors in [50]:
+                logger.debug(f'Fitting TransH-KG with {n_latent_factors} latent factors')
+                self.model = TransH(self.n_entities, self.n_relations, self.margin, n_latent_factors)
+                logger.debug(f'TransH-KG using {self.model.device}')
                 self._fit(training, validation)
 
             self.optimal_params = {'k': self.best_k}
 
-        self.model = TransE(self.n_entities, self.n_relations, self.margin, self.optimal_params['k'])
+        self.model = TransH(self.n_entities, self.n_relations, self.margin, self.optimal_params['k'])
 
-        logger.info(f'Fitting TransE with { self.optimal_params["k"]} latent factors')
+        logger.info(f'Fitting TransH-KG with { self.optimal_params["k"]} latent factors')
         self._fit(training, validation, max_iterations, verbose)
 
-    def _fit(self, training, validation, max_iterations=100, verbose=True):
+    def _fit(self, training, validation, max_iterations=5, verbose=True):
         val_hit_history = []
         val_dcg_history = []
         training_loss_history = []
@@ -356,8 +375,9 @@ class KGTransERecommender(RecommenderBase):
         for epoch in range(max_iterations):
             if epoch % 1 == 0:
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
+
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransE-KG with hit {_hit}')
+                    logger.debug(f'Found new best TransH-KG with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
@@ -386,9 +406,29 @@ class KGTransERecommender(RecommenderBase):
 
                 loss = tt.relu(self.model.margin + p_distance - n_distance).sum()
 
+                p_h, p_r, p_t = self.model.params_to(p_h, p_r, p_t)
+                n_h, n_r, n_t = self.model.params_to(n_h, n_r, n_t)
+
+                e_embeddings = self.model.entity_embeddings(tt.cat([p_h, p_t, n_h, n_t]))
+                r_embeddings = self.model.relation_embeddings(tt.cat([p_r, n_r]))
+                norm_embeddings = self.model.norm_embeddings(tt.cat([p_r, n_r]))
+
+                # Calculate the orthogonal loss
+                loss += tt.sum(tt.sum(norm_embeddings * r_embeddings, dim=1, keepdim=True) ** 2 / tt.sum(r_embeddings ** 2, dim=1, keepdim=True))
+
+                # Calculate the projection loss
+                e_norm = tt.sum(e_embeddings ** 2, dim=1, keepdim=True)
+                r_norm = tt.sum(r_embeddings ** 2, dim=1, keepdim=True)
+
+                loss += tt.sum(tt.max(e_norm - tt.tensor(1.0).to(self.model.device), tt.tensor(0.0).to(self.model.device)))
+                loss += tt.sum(tt.max(r_norm - tt.tensor(1.0).to(self.model.device), tt.tensor(0.0).to(self.model.device)))
+
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
+
+                # Normalise hyperplanes
+                self.model.normalize_hyperplanes(p_r)
 
         # Return the latest average Hit@k, use for grid search
         self.model = self.best_model

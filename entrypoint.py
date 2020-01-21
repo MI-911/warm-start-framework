@@ -20,6 +20,7 @@ from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
+from models.trans_h_recommender import CollabTransHRecommender, KGTransHRecommender
 from models.mf_numpy_recommender import MatrixFactorisationRecommender
 from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
 from time import time
@@ -34,6 +35,16 @@ models = {
     },
     'transe-kg': {
         'class': KGTransERecommender,
+        'split': True,
+        'descending': False
+    },
+    'transh': {
+        'class': CollabTransHRecommender,
+        'split': True,
+        'descending': False
+    },
+    'transh-kg': {
+        'class': KGTransHRecommender,
         'split': True,
         'descending': False
     },
