@@ -14,14 +14,7 @@ experiments = [
         'replace_movies_with_descriptive_entities': False,
         'n_negative_samples': 100,
         'movies_only': True
-    }],
-    ['all_entities', {
-        'movie_to_entity_ratio': 1,
-        'keep_all_ratings': True,
-        'replace_movies_with_descriptive_entities': False,
-        'n_negative_samples': 100,
-        'movies_only': False
-    }],
+    }]
 ]
 
 
