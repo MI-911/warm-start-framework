@@ -23,6 +23,7 @@ from models.trans_e_recommender import CollabTransERecommender, KGTransERecommen
 from models.trans_h_recommender import CollabTransHRecommender, KGTransHRecommender
 from models.mf_numpy_recommender import MatrixFactorisationRecommender
 from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
+from models.cbf_item_knn_recommender import CbfItemKnnRecommender
 from time import time
 
 from utility.table_generator import generate_table
@@ -85,6 +86,10 @@ models = {
     },
     'joint-mf': {
         'class': JointMatrixFactorizaionRecommender,
+        'split': True
+    },
+    'cbf-item-knn': {
+        'class': CbfItemKnnRecommender,
         'split': True
     }
 }
