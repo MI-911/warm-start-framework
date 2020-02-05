@@ -276,6 +276,9 @@ class CollabTransHRecommender(RecommenderBase):
 
                 loss = tt.relu(self.model.margin + p_distance - n_distance).sum()
 
+                p_h, p_r, p_t = self.model.params_to(p_h, p_r, p_t)
+                n_h, n_r, n_t = self.model.params_to(n_h, n_r, n_t)
+
                 e_embeddings = self.model.entity_embeddings(tt.cat([p_h, p_t, n_h, n_t]))
                 r_embeddings = self.model.relation_embeddings(tt.cat([p_r, n_r]))
                 norm_embeddings = self.model.norm_embeddings(tt.cat([p_r, n_r]))

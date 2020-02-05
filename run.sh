@@ -21,10 +21,18 @@ docker build -t mi911/runner .
 # docker run -d -v ${PWD}/.data:/app/data -v ${PWD}/results:/app/results mi911/runner --include transe --experiments ntp-substituting-4-2 --debug
 # docker run -d -v ${PWD}/.data:/app/data -v ${PWD}/results:/app/results mi911/runner --include transe --experiments ntp-substituting-4-1 --debug
 
-# python3.7 entrypoint.py --include transe --experiments ntp-all_movies --debug
-python3.7 entrypoint.py --include transe-kg --experiments ntp-all_movies --debug
-python3.7 entrypoint.py --include transh --experiments ntp-all_movies --debug
-python3.7 entrypoint.py --include transh-kg --experiments ntp-all_movies --debug
+docker run -d -v ${PWD}/data:/app/data -v ${PWD}/results:/app/results mi911/runner --include mf --experiments ntp-all_movies --debug
+docker run -d -v ${PWD}/data:/app/data -v ${PWD}/results:/app/results mi911/runner --include mf --experiments wtp-all_movies --debug
+
+# python3.7 entrypoint.py --include transh --experiments ntp-all_movies --debug
+# python3.7 entrypoint.py --include transh --experiments wtp-all_movies --debug
+# python3.7 entrypoint.py --include transh-kg --experiments wtp-all_movies --debug
+
+# python3.7 entrypoint.py --include transe --experiments wtp-all_movies --debug
+# python3.7 entrypoint.py --include transe-kg --experiments wtp-all_movies --debug
+
+
+
 
 # python3.7 entrypoint.py --include transe --experiments ntp-all_movies --debug
 # python3.7 entrypoint.py --include transe-kg --experiments ntp-all_movies --debug
