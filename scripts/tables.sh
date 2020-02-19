@@ -1,3 +1,5 @@
+cd  ..
+
 echo "Adding entity ratings (WTP)"
 docker run --rm -v ${PWD}/data:/app/data -v ~/Thesis/results:/app/results mi911/runner --experiments wtp-all_movies wtp-all_entities --summary --table --test wtp-all_movies
 
