@@ -11,9 +11,9 @@ alpha = 0.05
 pretty_map = {
     'ndcg': 'NDCG',
     'hr': 'HR',
-    'pr-collab': 'PPR-COLLAB',
-    'pr-joint': 'PPR-JOINT',
-    'pr-kg': 'PPR-KG',
+    'ppr-collab': 'PPR-COLLAB',
+    'ppr-joint': 'PPR-JOINT',
+    'ppr-kg': 'PPR-KG',
     'item-knn': 'Item kNN',
     'user-knn': 'User kNN',
     'transe': 'TransE',
