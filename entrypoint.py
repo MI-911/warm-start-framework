@@ -51,14 +51,14 @@ models = {
     'bpr': {
         'class': BPRRecommender
     },
-    'pr-collab': {
+    'ppr-collab': {
         'class': CollaborativePageRankRecommender
     },
-    'pr-kg': {
+    'ppr-kg': {
         'class': KnowledgeGraphPageRankRecommender,
         'split': True
     },
-    'pr-joint': {
+    'ppr-joint': {
         'class': JointPageRankRecommender,
         'split': True
     },
