@@ -6,7 +6,7 @@ from loguru import logger
 from networkx import pagerank_scipy, Graph
 
 from models.base_recommender import RecommenderBase
-
+from utility.utility import get_combinations
 
 RATING_CATEGORIES = {1, 0, -1}
 
@@ -48,13 +48,11 @@ def construct_knowledge_graph(triples_path, entity_idx):
 
 
 class PageRankRecommender(RecommenderBase):
-    def __init__(self, only_positive=False):
+    def __init__(self):
         super().__init__()
         self.graph = None
-        self.only_positive = only_positive
         self.user_ratings = dict()
         self.optimal_params = None
-        self.rating_importance = {1: 0.9, 0: 0.1, -1: 0}
         self.entity_indices = set()
 
     def get_entity_indices(self):
@@ -72,7 +70,8 @@ class PageRankRecommender(RecommenderBase):
         return indices
 
     def predict(self, user, items):
-        return self._scores(self.optimal_params['alpha'], self.get_node_weights(user), items)
+        return self._scores(self.optimal_params['alpha'],
+                            self.get_node_weights(user, self.optimal_params['importance']), items)
 
     def construct_graph(self, training):
         raise NotImplementedError
@@ -82,22 +81,20 @@ class PageRankRecommender(RecommenderBase):
 
         return {item: score for item, score in scores if item in items}
 
-    def _weight(self, category, ratings):
-        if not ratings[category] or not self.rating_importance[category]:
+    @staticmethod
+    def _weight(category, ratings, importance):
+        if not ratings[category] or not importance[category]:
             return 0
 
-        return self.rating_importance[category] / len(ratings[category])
+        return importance[category] / len(ratings[category])
 
-    def get_node_weights(self, user):
+    def get_node_weights(self, user, importance):
         if not self.user_ratings[user]:
             return []
 
         ratings = {category: set() for category in RATING_CATEGORIES}
 
         for rating in self.user_ratings[user]:
-            if self.only_positive and rating.rating != 1:
-                continue
-
             ratings[rating.rating].add(rating.e_idx)
 
         # Find rated and unrated entities
@@ -108,12 +105,10 @@ class PageRankRecommender(RecommenderBase):
         ratings[0] = ratings[0].union(unrated_entities)
 
         # Compute the weight of each rating category
-        rating_weight = {category: self._weight(category, ratings) for category in RATING_CATEGORIES}
+        rating_weight = {category: self._weight(category, ratings, importance) for category in RATING_CATEGORIES}
 
         # Assign weight to each node depending on their rating
-        return {
-            idx: rating_weight[category] for category in RATING_CATEGORIES for idx in ratings[category]
-        }
+        return {idx: rating_weight[category] for category in RATING_CATEGORIES for idx in ratings[category]}
 
     def _validate(self, alpha, source_nodes, validation_item, negatives, k=10):
         scores = self._scores(alpha, source_nodes, [validation_item] + negatives)
@@ -128,29 +123,40 @@ class PageRankRecommender(RecommenderBase):
         self.graph = self.construct_graph(training)
 
         if not self.optimal_params:
-            alpha_ranges = [0.85]
-            alpha_hit = dict()
+            parameters = {
+                'alpha': [0.85],
+                'importance': [
+                    {1: 1, 0: 0, -1: 0},
+                    {1: 0.5, 0: 0, -1: 0.5},
+                    {1: 0.9, 0: 0.1, -1: 0.0},
+                    {1: 0.0, 0: 0.1, -1: 0.9},
+                    {1: 0.05, 0: 0.9, -1: 0.05},
+                ]
+            }
 
-            for alpha in alpha_ranges:
-                logger.debug(f'Trying alpha value {alpha}')
+            combinations = get_combinations(parameters)
+            logger.debug(f'{len(combinations)} hyperparameter combinations')
+
+            results = list()
+
+            for combination in combinations:
+                logger.debug(f'Trying {combination}')
 
                 hits = 0
                 count = 0
 
                 for user, validation_tuple in validation:
-                    node_weights = self.get_node_weights(user)
+                    node_weights = self.get_node_weights(user, combination['importance'])
                     if not node_weights:
                         continue
 
-                    hits += self._validate(alpha, node_weights, *validation_tuple)
+                    hits += self._validate(combination['alpha'], node_weights, *validation_tuple)
                     count += 1
 
-                hit_ratio = hits / count
-                alpha_hit[alpha] = hit_ratio
+                logger.debug(f'Hit: {hits / count * 100:.2f}%')
+                results.append((combination, hits / count))
 
-                logger.debug(f'Hit ratio of {alpha}: {hit_ratio}')
+            best = sorted(results, key=operator.itemgetter(1), reverse=True)[0][0]
+            logger.info(f'Found best: {best}')
 
-            best = max(alpha_hit.items(), key=operator.itemgetter(1))
-            logger.info(f'Best: {best}')
-
-            self.optimal_params = {'alpha': best[0]}
+            self.optimal_params = best
