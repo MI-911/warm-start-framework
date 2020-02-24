@@ -27,4 +27,4 @@ For example, if we want to run the experiment containing all movie ratings with 
 docker run -d -v ${PWD}/.data:/app/data -v ${PWD}/results:/app/results mi911/runner --include bpr svd --experiments wtp-all_movies --debug
 ```
 
-Run the `./run.sh` script for running all models in all experiments.
+Run the `./run.sh` script for running all models in all experiments. *Note: Runs all experiments in parallel*.
