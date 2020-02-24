@@ -1,6 +1,6 @@
 import numpy as np
 
-from data_loading.loo_data_loader import DesignatedDataLoader
+from data_loading.loo_data_loader import LeaveOneOutDataLoader
 from models.base_knn import BaseKNN
 from loguru import logger
 
@@ -118,7 +118,7 @@ class UserKNNRecommender(BaseKNN):
 
 
 if __name__ == '__main__':
-    data_loader = DesignatedDataLoader.load_from(
+    data_loader = LeaveOneOutDataLoader.load_from(
         path='../data_loading/mindreader',
         min_num_entity_ratings=5,
         movies_only=False,

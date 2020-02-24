@@ -1,4 +1,4 @@
-from data_loading.loo_data_loader import DesignatedDataLoader
+from data_loading.loo_data_loader import LeaveOneOutDataLoader
 from os.path import join
 import json
 import os
@@ -19,6 +19,27 @@ experiments = [
         'movie_to_entity_ratio': 1,
         'keep_all_ratings': True,
         'replace_movies_with_descriptive_entities': False,
+        'n_negative_samples': 100,
+        'movies_only': False
+    }],
+    ['substituting-3-4', {
+        'movie_to_entity_ratio': 3/4,
+        'keep_all_ratings': False,
+        'replace_movies_with_descriptive_entities': True,
+        'n_negative_samples': 100,
+        'movies_only': False
+    }],
+    ['substituting-2-4', {
+        'movie_to_entity_ratio': 2/4,
+        'keep_all_ratings': False,
+        'replace_movies_with_descriptive_entities': True,
+        'n_negative_samples': 100,
+        'movies_only': False
+    }],
+    ['substituting-1-4', {
+        'movie_to_entity_ratio': 1/4,
+        'keep_all_ratings': False,
+        'replace_movies_with_descriptive_entities': True,
         'n_negative_samples': 100,
         'movies_only': False
     }],
@@ -44,7 +65,7 @@ def generate_with_top_pop(filter_unkowns=False):
                     logger.info(f'Attempting to create {filename} with random seed {random_seed}...')
 
                     args['random_seed'] = random_seed
-                    loader = DesignatedDataLoader.load_from(
+                    loader = LeaveOneOutDataLoader.load_from(
                         join('../data_loading', 'mindreader'),
                         min_num_entity_ratings=1,
                         filter_unknowns=filter_unkowns,
@@ -89,7 +110,7 @@ def generate_without_top_pop(filter_unkowns=False):
                     logger.info(f'Attempting to create {filename} with random seed {random_seed}...')
                     args['random_seed'] = random_seed
                     args['without_top_pop'] = True
-                    loader = DesignatedDataLoader.load_from(
+                    loader = LeaveOneOutDataLoader.load_from(
                         join('./data_loading', 'mindreader'),
                         min_num_entity_ratings=1,
                         filter_unknowns=filter_unkowns,
@@ -116,8 +137,8 @@ def generate_without_top_pop(filter_unkowns=False):
 
 
 def _generate_dataset(args): 
-    (experiment, args), (filter_unknowns, without_top_pop, i) = args
-    experiment_dir = join(f'datasets{"" if filter_unknowns else "_with_unknowns"}', experiment)
+    (experiment, args), (filter_unknowns, without_top_pop, i, base_dir) = args
+    experiment_dir = join(base_dir, experiment)
     if not os.path.exists(experiment_dir):
         os.makedirs(experiment_dir)
 
@@ -129,7 +150,7 @@ def _generate_dataset(args):
             logger.info(f'Attempting to create {filename} with random seed {random_seed}...')
             args['random_seed'] = random_seed
             args['without_top_pop'] = without_top_pop
-            loader = DesignatedDataLoader.load_from(
+            loader = LeaveOneOutDataLoader.load_from(
                 join('./data_loading', 'mindreader'),
                 min_num_entity_ratings=1,
                 filter_unknowns=filter_unknowns,
@@ -157,9 +178,8 @@ def _generate_dataset(args):
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):
     for i in range(n_experiments):
         with Pool(8) as p: 
-            p.map(_generate_dataset, [(args, (filter_unknowns, without_top_pop, i)) for args in experiments])
+            p.map(_generate_dataset, [(args, (filter_unknowns, without_top_pop, i, base_dir)) for args in experiments])
 
 
 if __name__ == '__main__':
     generate(filter_unknowns=True, without_top_pop=True, base_dir='./datasets')
-    # generate(filter_unknowns=True, without_top_pop=False, base_dir='./datasets')
