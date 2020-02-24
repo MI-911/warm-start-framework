@@ -1,6 +1,5 @@
 import numpy as np
 from numpy.linalg import solve
-from loguru import logger
 
 
 class JointMatrixFactorization:

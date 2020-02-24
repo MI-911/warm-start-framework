@@ -4,7 +4,7 @@ from loguru import logger
 
 from models.base_recommender import RecommenderBase
 from models.bpr import BPR
-from utility.utility import csr, get_combinations
+from utility.utility import get_combinations
 
 
 class BPRRecommender(RecommenderBase):

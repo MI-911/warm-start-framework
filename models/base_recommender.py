@@ -1,6 +1,8 @@
 
 
 class RecommenderBase:
+    """ Base class that should be extended by every recommender model."""
+
     def __init__(self, model=None):
         self.model = model
 

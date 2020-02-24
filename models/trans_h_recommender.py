@@ -199,7 +199,6 @@ class CollabTransHRecommender(RecommenderBase):
         self.best_model = None
         
         if self.optimal_params is None:
-            hit_rates = {}
             for n_latent_factors in [50, 100, 250]:
                 logger.debug(f'Fitting TransH with {n_latent_factors} latent factors')
                 self.model = TransH(self.n_entities, self.n_relations, self.margin, n_latent_factors)
@@ -215,19 +214,9 @@ class CollabTransHRecommender(RecommenderBase):
     def _fit(self, training, validation, max_iterations=100, verbose=True):
         val_hit_history = []
         val_dcg_history = []
-        training_loss_history = []
 
         # Convert likes/dislikes to relation 1 and 0
         train = convert_ratings(training)
-
-        # Num entities
-        n_total_entities = self.split.n_users + self.split.n_descriptive_entities + self.split.n_movies
-        n_total_entities_no_users = n_total_entities - self.split.n_users
-
-        # What indices are for users, movies and entities, respectively?
-        # user_indices = list(range(n_total_entities_no_users, n_total_entities))
-        # movie_indices = self.split.movie_indices
-        # descriptive_entity_indices = self.split.descriptive_entity_indices
 
         # Load KG triples if needed
         kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})
@@ -331,7 +320,6 @@ class KGTransHRecommender(RecommenderBase):
         self.best_model = None
 
         if self.optimal_params is None:
-            hit_rates = {}
             for n_latent_factors in [50]:
                 logger.debug(f'Fitting TransH-KG with {n_latent_factors} latent factors')
                 self.model = TransH(self.n_entities, self.n_relations, self.margin, n_latent_factors)
@@ -348,19 +336,9 @@ class KGTransHRecommender(RecommenderBase):
     def _fit(self, training, validation, max_iterations=5, verbose=True):
         val_hit_history = []
         val_dcg_history = []
-        training_loss_history = []
 
         # Convert likes/dislikes to relation 1 and 0
         train = convert_ratings(training)
-
-        # Num entities
-        n_total_entities = self.split.n_users + self.split.n_descriptive_entities + self.split.n_movies
-        n_total_entities_no_users = n_total_entities - self.split.n_users
-
-        # What indices are for users, movies and entities, respectively?
-        # user_indices = list(range(n_total_entities_no_users, n_total_entities))
-        # movie_indices = self.split.movie_indices
-        # descriptive_entity_indices = self.split.descriptive_entity_indices
 
         # Load KG triples if needed
         kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})

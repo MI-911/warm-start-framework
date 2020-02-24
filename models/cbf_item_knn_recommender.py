@@ -1,7 +1,5 @@
 import numpy as np 
-import json 
-import pandas as pd 
-import os
+import pandas as pd
 from scipy.spatial.distance import cosine
 
 from models.base_recommender import RecommenderBase

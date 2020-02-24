@@ -15,7 +15,7 @@ from models.item_knn_recommender import ItemKNNRecommender
 from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
 from models.pagerank.joint_pagerank_recommender import JointPageRankRecommender
 from models.pagerank.kg_pagerank_recommender import KnowledgeGraphPageRankRecommender
-from models.randumb import RandomRecommender
+from models.random import RandomRecommender
 from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender

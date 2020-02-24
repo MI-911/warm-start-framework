@@ -1,6 +1,5 @@
 from data_loading.loo_data_loader import DesignatedDataLoader
 from models.base_knn import BaseKNN
-from models.base_recommender import RecommenderBase
 import numpy as np
 from loguru import logger
 
