@@ -47,7 +47,7 @@ class MatrixFactorisationRecommender(RecommenderBase):
             self.model = MatrixFactorisation(self.split.n_users,
                                              self.split.n_movies + self.split.n_descriptive_entities,
                                              self.optimal_params['k'])
-            logger.debug(f'Found best parameters for MF: {self.optimal_params}')
+            logger.info(f'Found best parameters for MF: {self.optimal_params}')
             self._fit(training, validation)
         else:
             self.model = MatrixFactorisation(self.split.n_users,
@@ -81,7 +81,7 @@ class MatrixFactorisationRecommender(RecommenderBase):
                 validation_history.append(_hit)
 
                 if verbose:
-                    logger.debug(f'Hit@10 at epoch {epoch}: {np.mean([1 if r < 10 else 0 for r in ranks])}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {np.mean([1 if r < 10 else 0 for r in ranks])}')
 
         return np.mean(validation_history[-10:])
 

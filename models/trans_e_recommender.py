@@ -333,7 +333,7 @@ class KGTransERecommender(RecommenderBase):
             if epoch % 1 == 0:
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransE-KG with hit {_hit}')
+                    logger.info(f'Found new best TransE-KG with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
@@ -341,7 +341,7 @@ class KGTransERecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))

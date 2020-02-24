@@ -70,7 +70,7 @@ class UserKNNRecommender(BaseKNN):
 
             self.optimal_params = best_outer_config
         else:
-            logger.debug(f'Reusing params {self.optimal_params}')
+            logger.info(f'Reusing params {self.optimal_params}')
             self._set_self(self.optimal_params)
 
     def _cosine_similarity(self, user, user_k, eps=1e-8):

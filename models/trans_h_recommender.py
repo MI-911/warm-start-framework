@@ -235,7 +235,7 @@ class CollabTransHRecommender(RecommenderBase):
             if epoch % 1 == 0:
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransH with hit {_hit}')
+                    logger.info(f'Found new best TransH with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
@@ -244,7 +244,7 @@ class CollabTransHRecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))
@@ -323,7 +323,6 @@ class KGTransHRecommender(RecommenderBase):
             for n_latent_factors in [50]:
                 logger.debug(f'Fitting TransH-KG with {n_latent_factors} latent factors')
                 self.model = TransH(self.n_entities, self.n_relations, self.margin, n_latent_factors)
-                logger.debug(f'TransH-KG using {self.model.device}')
                 self._fit(training, validation)
 
             self.optimal_params = {'k': self.best_k}
@@ -358,7 +357,7 @@ class KGTransHRecommender(RecommenderBase):
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
 
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransH-KG with hit {_hit}')
+                    logger.info(f'Found new best TransH-KG with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
@@ -366,7 +365,7 @@ class KGTransHRecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))
