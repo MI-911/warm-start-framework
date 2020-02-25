@@ -4,10 +4,10 @@ Data loaders and model training/evaluation pipelines used in the pre-specialisat
 
 ## Get the most recent data
 
-From the `./data_loading/download_raw_data.py` scripts, run `download_data()` to download the most recent MindReader data.
+Run the `./data_loading/download_raw_data.py` script to download the most recent MindReader data.
 
 ## Generate datasets
-Run the `./data_loading/data_generator.py` script to generate data. Consult `generate()` to adjust whether or not to include top-popular items in the test set.
+Run the `./data_generation_entry.py` script to generate data. Consult `generate()` to adjust whether or not to include top-popular items in the test set.
 
 ## Running the experiments
 Then, build the Docker image: 

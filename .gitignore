@@ -2,11 +2,13 @@
 .idea
 .venv
 new
+venv
 
 # Ignore files
 *.csv
 *.json
 *.pyc
+*.tar.gz
 
 notebooks/bpr.ipynb~
 

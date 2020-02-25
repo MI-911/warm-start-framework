@@ -63,14 +63,14 @@ models = {
     'bpr': {
         'class': BPRRecommender
     },
-    'pr-collab': {
+    'ppr-collab': {
         'class': CollaborativePageRankRecommender
     },
-    'pr-kg': {
+    'ppr-kg': {
         'class': KnowledgeGraphPageRankRecommender,
         'split': True
     },
-    'pr-joint': {
+    'ppr-joint': {
         'class': JointPageRankRecommender,
         'split': True
     },
@@ -235,7 +235,7 @@ def run():
         logger.add(sys.stderr, level='INFO')
 
     # Initialize dataset
-    dataset = Dataset('data', args.experiments)
+    dataset = Dataset('datasets', args.experiments)
 
     # Create results folder
     results_base = 'results'

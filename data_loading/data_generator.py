@@ -4,6 +4,7 @@ import json
 import os
 from multiprocessing.pool import Pool
 from time import time
+from shutil import copyfile
 
 from loguru import logger
 
@@ -42,7 +43,7 @@ experiments = [
         'replace_movies_with_descriptive_entities': True,
         'n_negative_samples': 100,
         'movies_only': False
-    }],
+    }]
 ]
 
 
@@ -175,11 +176,34 @@ def _generate_dataset(args):
             print(e)
 
 
+def prepare(datasets_dir='./datasets', mindreader_dir='./data_loading/mindreader/'):
+    """ Creates a datasets_dir directory and adds KG triples and meta.json"""
+    if not os.path.exists(datasets_dir):
+        os.makedirs(datasets_dir)
+
+    # Copy triples
+    copyfile(join(mindreader_dir, 'triples.csv'), join(datasets_dir, 'triples.csv'))
+    logger.info(f'Copied triples (from {mindreader_dir})')
+
+    # Write meta.json
+    loader = LeaveOneOutDataLoader.load_from(
+        join('./data_loading', 'mindreader'),
+        min_num_entity_ratings=1,
+        filter_unknowns=True,
+        unify_user_indices=False,
+        random_seed=42
+    )
+
+    with open(join(datasets_dir, 'meta.json'), 'w') as fp:
+        json.dump({
+            'e_idx_map': loader.e_idx_map
+        }, fp)
+
+    logger.info(f'Wrote meta.json')
+
+
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):
     for i in range(n_experiments):
         with Pool(8) as p: 
             p.map(_generate_dataset, [(args, (filter_unknowns, without_top_pop, i, base_dir)) for args in experiments])
 
-
-if __name__ == '__main__':
-    generate(filter_unknowns=True, without_top_pop=True, base_dir='./datasets')
