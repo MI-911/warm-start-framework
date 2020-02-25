@@ -3,6 +3,7 @@ from os.path import join
 import json
 import os
 from multiprocessing.pool import Pool
+from multiprocessing import cpu_count
 from time import time
 from shutil import copyfile
 
@@ -205,6 +206,6 @@ def prepare(datasets_dir='./datasets', mindreader_dir='./data_loading/mindreader
 
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):
     for i in range(n_experiments):
-        with Pool(8) as p: 
+        with Pool(cpu_count()) as p:
             p.map(_generate_dataset, [(args, (filter_unknowns, without_top_pop, i, base_dir)) for args in experiments])
 
