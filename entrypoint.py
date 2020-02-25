@@ -12,6 +12,7 @@ from experiments.experiment import Dataset
 from experiments.metrics import ndcg_at_k
 from models.bpr_recommender import BPRRecommender
 from models.item_knn_recommender import ItemKNNRecommender
+from models.melu_recommender import MeLURecommender
 from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
 from models.pagerank.joint_pagerank_recommender import JointPageRankRecommender
 from models.pagerank.kg_pagerank_recommender import KnowledgeGraphPageRankRecommender
@@ -75,7 +76,11 @@ models = {
     'joint-mf': {
         'class': JointMatrixFactorizaionRecommender,
         'split': True
-    }
+    },
+    'melu': {
+        'class': MeLURecommender,
+        'split': True
+    },
 }
 
 upper_cutoff = 50
