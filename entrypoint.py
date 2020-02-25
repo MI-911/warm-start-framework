@@ -16,13 +16,15 @@ from models.melu_recommender import MeLURecommender
 from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
 from models.pagerank.joint_pagerank_recommender import JointPageRankRecommender
 from models.pagerank.kg_pagerank_recommender import KnowledgeGraphPageRankRecommender
-from models.randumb import RandomRecommender
+from models.random import RandomRecommender
 from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
 from models.trans_e_recommender import CollabTransERecommender, KGTransERecommender
+from models.trans_h_recommender import CollabTransHRecommender, KGTransHRecommender
 from models.mf_numpy_recommender import MatrixFactorisationRecommender
 from models.mf_joint_numpy_recommender import JointMatrixFactorizaionRecommender
+from models.cbf_item_knn_recommender import CbfItemKnnRecommender
 from time import time
 
 from utility.table_generator import generate_table
@@ -35,6 +37,16 @@ models = {
     },
     'transe-kg': {
         'class': KGTransERecommender,
+        'split': True,
+        'descending': False
+    },
+    'transh': {
+        'class': CollabTransHRecommender,
+        'split': True,
+        'descending': False
+    },
+    'transh-kg': {
+        'class': KGTransHRecommender,
         'split': True,
         'descending': False
     },
@@ -81,6 +93,10 @@ models = {
         'class': MeLURecommender,
         'split': True
     },
+    'cbf-item-knn': {
+        'class': CbfItemKnnRecommender,
+        'split': True
+    }
 }
 
 upper_cutoff = 50
@@ -224,7 +240,7 @@ def run():
         logger.add(sys.stderr, level='INFO')
 
     # Initialize dataset
-    dataset = Dataset('data', args.experiments)
+    dataset = Dataset('datasets', args.experiments)
 
     # Create results folder
     results_base = 'results'
