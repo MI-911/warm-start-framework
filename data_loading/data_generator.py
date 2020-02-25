@@ -139,14 +139,14 @@ def generate_without_top_pop(filter_unkowns=False):
 
 def _generate_dataset(args): 
     (experiment, args), (filter_unknowns, without_top_pop, i, base_dir) = args
-    experiment_dir = join(base_dir, experiment)
+    experiment_dir = join(base_dir, f"{'ntp' if without_top_pop else 'wtp'}-{experiment}")
     if not os.path.exists(experiment_dir):
         os.makedirs(experiment_dir)
 
     successfully_created_experiment = False
     while not successfully_created_experiment:
         try:
-            filename = join(experiment_dir, f'{"ntp" if without_top_pop else "wtp"}-{i}.json')
+            filename = join(experiment_dir, f'{i}.json')
             random_seed = time()
             logger.info(f'Attempting to create {filename} with random seed {random_seed}...')
             args['random_seed'] = random_seed
@@ -180,10 +180,11 @@ def prepare(datasets_dir='./datasets', mindreader_dir='./data_loading/mindreader
     """ Creates a datasets_dir directory and adds KG triples and meta.json"""
     if not os.path.exists(datasets_dir):
         os.makedirs(datasets_dir)
+        logger.info(f'Created {datasets_dir}...')
 
     # Copy triples
     copyfile(join(mindreader_dir, 'triples.csv'), join(datasets_dir, 'triples.csv'))
-    logger.info(f'Copied triples (from {mindreader_dir})')
+    logger.info(f'Copied triples.csv into {datasets_dir} (from {mindreader_dir})...')
 
     # Write meta.json
     loader = LeaveOneOutDataLoader.load_from(
@@ -199,7 +200,7 @@ def prepare(datasets_dir='./datasets', mindreader_dir='./data_loading/mindreader
             'e_idx_map': loader.e_idx_map
         }, fp)
 
-    logger.info(f'Wrote meta.json')
+    logger.info(f'Wrote meta.json to {datasets_dir}...')
 
 
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):

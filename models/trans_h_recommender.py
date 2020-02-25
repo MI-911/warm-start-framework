@@ -287,7 +287,7 @@ class CollabTransHRecommender(RecommenderBase):
                 optimizer.zero_grad()
 
                 # Normalise hyperplanes
-                self.model.normalize_hyperplanes(p_r)
+                self.model.normalize_hyperplanes()
 
         # Return the latest average Hit@k, use for grid search
         self.model = self.best_model

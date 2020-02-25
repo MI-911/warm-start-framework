@@ -85,6 +85,20 @@ class TransE(nn.Module):
 
         return score_dict
 
+    def fast_rank(self, u_idx, relation_idx, pos_sample, neg_samples):
+        u_idx, relation_idx, movie_indices = self.params_to(u_idx, relation_idx, neg_samples + [pos_sample],
+                                                            self.device)
+        pos_sample = tt.tensor(pos_sample).to(self.device)
+
+        prediction_vector = self.entity_embeddings(u_idx) + self.relation_embeddings(relation_idx)
+        movie_embeddings = self.entity_embeddings(movie_indices)
+        target_distance = tt.norm(prediction_vector - self.entity_embeddings(pos_sample), p=2)
+
+        all_distances = tt.norm(prediction_vector - movie_embeddings, p=2, dim=1)
+        all_distances -= target_distance
+        better_items = tt.where(all_distances < 0)[0]
+        return len(better_items)
+
 
 if __name__ == '__main__':
     pass
