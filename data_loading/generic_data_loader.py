@@ -97,7 +97,8 @@ class DataLoader:
     @staticmethod
     def _load_from(path, filter_unknowns=True, min_num_entity_ratings=1, movies_only=False, unify_user_indices=False,
                    remove_top_k_percent=None, random_seed=42):
-        with open(os.path.join(path, 'ml_ratings.json')) as ratings_p:
+
+        with open(os.path.join(path, 'ratings_clean.json')) as ratings_p:
             ratings = json.load(ratings_p)
         with open(os.path.join(path, 'entities_clean.json')) as entities_p:
             entities = json.load(entities_p)

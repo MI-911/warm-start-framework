@@ -5,9 +5,9 @@ from random import shuffle
 from data_loading.generic_data_loader import DataLoader
 
 
-class DesignatedDataLoader(DataLoader):
+class LeaveOneOutDataLoader(DataLoader):
     def __init__(self, args):
-        super(DesignatedDataLoader, self).__init__(*args)
+        super(LeaveOneOutDataLoader, self).__init__(*args)
         self.train = []
         self.validation = []
         self.test = []
@@ -230,8 +230,8 @@ class DesignatedDataLoader(DataLoader):
     @staticmethod
     def load_from(path, filter_unknowns=True, min_num_entity_ratings=1, movies_only=False, unify_user_indices=False,
                   remove_top_k_percent=None, random_seed=42):
-        return DesignatedDataLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only,
-                                                          unify_user_indices, remove_top_k_percent, random_seed))
+        return LeaveOneOutDataLoader(DataLoader._load_from(path, filter_unknowns, min_num_entity_ratings, movies_only,
+                                                           unify_user_indices, remove_top_k_percent, random_seed))
 
 
 def load_loo_data(path, movie_percentage=1., num_negative_samples=100, seed=42):
