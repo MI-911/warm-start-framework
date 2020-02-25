@@ -1,7 +1,6 @@
 import torch as tt
 import torch.nn as nn
 import torch.nn.functional as ff
-import numpy as np
 
 
 class TransH(nn.Module):
@@ -62,7 +61,7 @@ class TransH(nn.Module):
     def normalize_entity_embeddings(self):
         self.entity_embeddings.weight.data = ff.normalize(self.entity_embeddings.weight.data, 2, 1)
 
-    def head_energies(self, relation, tail):
+    def head_differences(self, relation, tail):
         _, relation, tail = self.params_to(0, relation, tail, self.device)
         head_embeddings = self.entity_embeddings(tt.tensor(range(self.n_entities)).to(self.device))
         p_t_e = head_embeddings + self.relation_embeddings(relation)
@@ -70,7 +69,7 @@ class TransH(nn.Module):
         differences = tt.norm(differences, p=2, dim=1)
         return differences
 
-    def tail_energies(self, head, relation):
+    def tail_distances(self, head, relation):
         head, relation, _ = self.params_to(head, relation, 0, self.device)
         tail_embeddings = self.entity_embeddings(tt.tensor(range(self.n_entities)).to(self.device))
         p_t_e = self.entity_embeddings(head) + self.entity_embeddings(relation)
@@ -78,27 +77,8 @@ class TransH(nn.Module):
         differences = tt.norm(differences, p=2, dim=1)
         return differences
 
-    def normalize_hyperplanes(self, indices): 
+    def normalize_hyperplanes(self):
         self.norm_embeddings.weight.data = ff.normalize(self.norm_embeddings.weight.data, p=2, dim=1)
-
-    def fast_validate(self, h, r, t):
-        h, r, t = self.params_to(h, r, t, self.device)
-
-        self.normalize_entity_embeddings()
-
-        h_e = self.entity_embeddings(h)
-        r_e = self.relation_embeddings(r)
-        t_e = self.entity_embeddings(t)
-
-        target_loss = tt.norm(h_e + r_e - t_e, 2).repeat(self.n_entities, 1)
-
-        tmp_h_loss = tt.norm(self.entity_embeddings.weight.data + (r_e - t_e), 2, 1).view(-1, 1)
-        tmp_t_loss = tt.norm((h_e + r_e) - self.entity_embeddings.weight.data, 2, 1).view(-1, 1)
-
-        rank_h = tt.nonzero(ff.relu(target_loss - tmp_h_loss)).size()[0]
-        rank_t = tt.nonzero(ff.relu(target_loss - tmp_t_loss)).size()[0]
-
-        return (rank_h + rank_t) / 2
 
     def predict_movies_for_user(self, u_idx, relation_idx, movie_indices):
 

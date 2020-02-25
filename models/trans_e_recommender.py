@@ -1,12 +1,11 @@
 from models.base_recommender import RecommenderBase
-from models.other_trans_e import TransE
+from models.trans_e import TransE
 from data_loading.generic_data_loader import Rating
 import numpy as np
 import torch as tt
 import pandas as pd
 import random
 from loguru import logger
-import json
 import pickle
 
 
@@ -179,7 +178,6 @@ def corrupt_rating_triples(triples, ratings_matrix, u_idx_to_matrix_map, e_idx_t
 class CollabTransERecommender(RecommenderBase):
     def __init__(self, split):
         super(CollabTransERecommender, self).__init__()
-
         self.n_entities = split.n_users + split.n_movies + split.n_descriptive_entities
         self.n_relations = 3  # Like, dislike, unknown
 
@@ -198,7 +196,6 @@ class CollabTransERecommender(RecommenderBase):
         self.best_model = None
 
         if self.optimal_params is None:
-            hit_rates = {}
             for n_latent_factors in [50, 100, 250]:
                 logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
                 self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
@@ -214,19 +211,9 @@ class CollabTransERecommender(RecommenderBase):
     def _fit(self, training, validation, max_iterations=100, verbose=True):
         val_hit_history = []
         val_dcg_history = []
-        training_loss_history = []
 
         # Convert likes/dislikes to relation 1 and 0
         train = convert_ratings(training)
-
-        # Num entities
-        n_total_entities = self.split.n_users + self.split.n_descriptive_entities + self.split.n_movies
-        n_total_entities_no_users = n_total_entities - self.split.n_users
-
-        # What indices are for users, movies and entities, respectively?
-        # user_indices = list(range(n_total_entities_no_users, n_total_entities))
-        # movie_indices = self.split.movie_indices
-        # descriptive_entity_indices = self.split.descriptive_entity_indices
 
         # Load KG triples if needed
         kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})
@@ -245,7 +232,7 @@ class CollabTransERecommender(RecommenderBase):
             if epoch % 1 == 0:
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransE with hit {_hit}')
+                    logger.info(f'Found new best TransE with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
@@ -253,7 +240,7 @@ class CollabTransERecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))
@@ -294,7 +281,7 @@ class KGTransERecommender(RecommenderBase):
         super(KGTransERecommender, self).__init__()
 
         self.n_entities = split.n_users + split.n_movies + split.n_descriptive_entities
-        self.n_relations = 3 + 7 + 7  # Like, dislike, unknown
+        self.n_relations = 3 + 14  # Like, dislike, unknown, the rest of the KG relation types
 
         self.with_kg_triples = True
         self.with_standard_corruption = True
@@ -310,7 +297,6 @@ class KGTransERecommender(RecommenderBase):
         self.best_model = None
 
         if self.optimal_params is None:
-            hit_rates = {}
             for n_latent_factors in [50, 100, 250]:
                 logger.debug(f'Fitting TransE with {n_latent_factors} latent factors')
                 self.model = TransE(self.n_entities, self.n_relations, self.margin, n_latent_factors)
@@ -326,19 +312,9 @@ class KGTransERecommender(RecommenderBase):
     def _fit(self, training, validation, max_iterations=100, verbose=True):
         val_hit_history = []
         val_dcg_history = []
-        training_loss_history = []
 
         # Convert likes/dislikes to relation 1 and 0
         train = convert_ratings(training)
-
-        # Num entities
-        n_total_entities = self.split.n_users + self.split.n_descriptive_entities + self.split.n_movies
-        n_total_entities_no_users = n_total_entities - self.split.n_users
-
-        # What indices are for users, movies and entities, respectively?
-        # user_indices = list(range(n_total_entities_no_users, n_total_entities))
-        # movie_indices = self.split.movie_indices
-        # descriptive_entity_indices = self.split.descriptive_entity_indices
 
         # Load KG triples if needed
         kg_triples, r_idx_map = load_kg_triples(self.split) if self.with_kg_triples else ([], {})
@@ -357,7 +333,7 @@ class KGTransERecommender(RecommenderBase):
             if epoch % 1 == 0:
                 _hit, _dcg = evaluate_hit(self.model, validation, n=10)
                 if _hit > self.best_hit: 
-                    logger.debug(f'Found new best TransE-KG with hit {_hit}')
+                    logger.info(f'Found new best TransE-KG with hit {_hit}')
                     self.best_hit = _hit
                     self.best_k = self.model.k
                     self.best_model = pickle.loads(pickle.dumps(self.model))
@@ -365,7 +341,7 @@ class KGTransERecommender(RecommenderBase):
                 val_dcg_history.append(_dcg)
 
                 if verbose:
-                    logger.debug(f'Hit@10 at epoch {epoch}: {_hit}')
+                    logger.info(f'Hit@10 at epoch {epoch}: {_hit}')
 
             corrupted_train_ratings = (
                 corrupt_std(all_train_ratings, range(self.n_entities))

@@ -1,6 +1,5 @@
-from data_loading.loo_data_loader import DesignatedDataLoader
+from data_loading.loo_data_loader import LeaveOneOutDataLoader
 from models.base_knn import BaseKNN
-from models.base_recommender import RecommenderBase
 import numpy as np
 from loguru import logger
 
@@ -105,7 +104,7 @@ class ItemKNNRecommender(BaseKNN):
 
                 if best_inner_config['hit_rate'] > best_outer_config['hit_rate']:
                     best_outer_config = best_inner_config.copy()
-                    logger.debug(f'New best: {best_outer_config}')
+                    logger.info(f'New best: {best_outer_config}')
                 else:
                     last_better = False
 
@@ -116,7 +115,7 @@ class ItemKNNRecommender(BaseKNN):
 
             self.optimal_params = best_outer_config
         else:
-            logger.debug(f'Reusing params {self.optimal_params}')
+            logger.info(f'Reusing params {self.optimal_params}')
             self._set_self(self.optimal_params)
 
     def _set_self(self, configuration):
@@ -172,7 +171,7 @@ class ItemKNNRecommender(BaseKNN):
 
 
 if __name__ == '__main__':
-    data_loader = DesignatedDataLoader.load_from(
+    data_loader = LeaveOneOutDataLoader.load_from(
         path='../data_loading/mindreader',
         min_num_entity_ratings=5,
         movies_only=False,

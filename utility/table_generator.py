@@ -11,9 +11,9 @@ alpha = 0.05
 pretty_map = {
     'ndcg': 'NDCG',
     'hr': 'HR',
-    'pr-collab': 'PPR-COLLAB',
-    'pr-joint': 'PPR-JOINT',
-    'pr-kg': 'PPR-KG',
+    'ppr-collab': 'PPR-COLLAB',
+    'ppr-joint': 'PPR-JOINT',
+    'ppr-kg': 'PPR-KG',
     'item-knn': 'Item kNN',
     'user-knn': 'User kNN',
     'transe': 'TransE',
@@ -151,7 +151,7 @@ def generate_table(results_base, experiments: List[str], metric='hr', test=None,
             mean = model_results[model][experiment]['mean']
             std = model_results[model][experiment]['std']
 
-            base = f'{mean:.2f} \pm {std:.2f}'
+            base = f'{mean:.2f} \\pm {std:.2f}'
             significant = ''
             if test and experiment != test:
                 significant = '^*' if get_p_val(results_base, model, metric, k_value, test, experiment) < alpha else ''

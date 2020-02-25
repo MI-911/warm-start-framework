@@ -1,6 +1,5 @@
 import numpy as np
-from numpy.linalg import solve, inv
-from loguru import logger
+from numpy.linalg import solve
 
 
 class MatrixFactorisation:

@@ -15,7 +15,7 @@ from models.item_knn_recommender import ItemKNNRecommender
 from models.pagerank.collaborative_pagerank_recommender import CollaborativePageRankRecommender
 from models.pagerank.joint_pagerank_recommender import JointPageRankRecommender
 from models.pagerank.kg_pagerank_recommender import KnowledgeGraphPageRankRecommender
-from models.randumb import RandomRecommender
+from models.random import RandomRecommender
 from models.svd_recommender import SVDRecommender
 from models.top_pop_recommender import TopPopRecommender
 from models.user_knn_recommender import UserKNNRecommender
@@ -63,14 +63,14 @@ models = {
     'bpr': {
         'class': BPRRecommender
     },
-    'pr-collab': {
+    'ppr-collab': {
         'class': CollaborativePageRankRecommender
     },
-    'pr-kg': {
+    'ppr-kg': {
         'class': KnowledgeGraphPageRankRecommender,
         'split': True
     },
-    'pr-joint': {
+    'ppr-joint': {
         'class': JointPageRankRecommender,
         'split': True
     },
@@ -235,7 +235,7 @@ def run():
         logger.add(sys.stderr, level='INFO')
 
     # Initialize dataset
-    dataset = Dataset('data', args.experiments)
+    dataset = Dataset('datasets', args.experiments)
 
     # Create results folder
     results_base = 'results'

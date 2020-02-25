@@ -4,7 +4,7 @@ from loguru import logger
 
 from models.base_recommender import RecommenderBase
 from models.bpr import BPR
-from utility.utility import csr, get_combinations
+from utility.utility import get_combinations
 
 
 class BPRRecommender(RecommenderBase):
@@ -47,15 +47,15 @@ class BPRRecommender(RecommenderBase):
                         hits += 1
                     count += 1
 
-                logger.debug(f'Hit: {hits / count * 100}')
+                logger.info(f'Hit: {hits / count * 100}')
                 results.append((combination, hits / count))
 
             best = sorted(results, key=operator.itemgetter(1), reverse=True)[0][0]
             self.optimal_params = best
 
-            logger.info(f'Found best: {best}')
+            logger.debug(f'Found best: {best}')
         else:
-            logger.debug(f'Using stored hyperparameters {self.optimal_params}')
+            logger.info(f'Using stored hyperparameters {self.optimal_params}')
 
         self.model = BPR(training, **self.optimal_params)
         self.model.fit()
