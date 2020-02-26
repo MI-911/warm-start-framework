@@ -21,25 +21,20 @@ class MeLU(nn.Module):
         self.linear_out = nn.Linear(64, 1)
 
         self.activation = F.relu
-        self.implicit_activation = F.sigmoid
+        self.implicit_activation = tt.sigmoid
 
     def _get_embeddings(self, entity_idxs, decade_idxs, movie_idxs, category_idxs, person_idxs, company_idxs):
-        entities = self.entity_emb(entity_idxs).view(-1, 1)
-        decades = self.entity_emb(decade_idxs).view(-1, 1)
-        movies = self.entity_emb(movie_idxs).view(-1, 1)
-        categories = self.entity_emb(category_idxs).view(-1, 1)
-        persons = self.entity_emb(person_idxs).view(-1, 1)
-        companies = self.entity_emb(company_idxs).view(-1, 1)
+        entities = self.entity_emb(entity_idxs.float()) / tt.sum(entity_idxs.float(), 1).view(-1, 1)
+        decades = self.decade_emb(decade_idxs.float()) / tt.sum(decade_idxs.float(), 1).view(-1, 1)
+        movies = self.movie_emb(movie_idxs.float()) / tt.sum(movie_idxs.float(), 1).view(-1, 1)
+        categories = self.category_emb(category_idxs.float()) / tt.sum(category_idxs.float(), 1).view(-1, 1)
+        persons = self.person_emb(person_idxs.float()) / tt.sum(person_idxs.float(), 1).view(-1, 1)
+        companies = self.company_emb(company_idxs.float()) / tt.sum(company_idxs.float(), 1).view(-1, 1)
 
         return tt.cat((entities, decades, movies, categories, persons, companies), 1)
 
-    def forward(self, entity_idxs, decade_idxs, movie_idxs, category_idxs, person_idxs, company_idxs, is_support=True):
-        if is_support:
-            with tt.no_grad():
-                concatenated = self._get_embeddings(entity_idxs, decade_idxs, movie_idxs, category_idxs,
-                                                    person_idxs, company_idxs)
-        else:
-            concatenated = self._get_embeddings(entity_idxs, decade_idxs, movie_idxs, category_idxs,
+    def forward(self, entity_idxs, decade_idxs, movie_idxs, category_idxs, person_idxs, company_idxs):
+        concatenated = self._get_embeddings(entity_idxs, decade_idxs, movie_idxs, category_idxs,
                                                 person_idxs, company_idxs)
 
         x = self.fc1(concatenated)
