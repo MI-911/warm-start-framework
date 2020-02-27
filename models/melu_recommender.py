@@ -38,12 +38,12 @@ class MeLURecommender(RecommenderBase):
         self.weight_len = None
         self.fast_weights = None
         self.use_cuda = False
-        self.local_lr = 5e-6
+        self.local_lr = 1e-6
 
         self.store_parameters()
-        self.meta_optim = tt.optim.Adam(self.model.parameters(), lr=5e-5)
-        self.local_update_target_weight_name = ['fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias', 'linear_out.weight',
-                                                'linear_out.bias']
+        self.meta_optim = tt.optim.Adam(self.model.parameters(), lr=1e-5)
+        self.local_update_target_weight_name = ['entity_emb.weight', 'fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias',
+                                                'linear_out.weight', 'linear_out.bias']
 
     def store_parameters(self):
         self.keep_weight = deepcopy(self.model.state_dict())
@@ -136,9 +136,6 @@ class MeLURecommender(RecommenderBase):
             user_ratings[user] = [support, query]
             items.extend([r.e_idx for r in support])
 
-        item_count = Counter(items)
-        del items
-
         support_xs = []
         support_ys = []
         query_xs = []
@@ -151,8 +148,8 @@ class MeLURecommender(RecommenderBase):
             for item in support:
                 meta = self.entity_metadata[item.e_idx]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support if r.e_idx != item.e_idx]).t()
-                onehots = self.to_onehot(e, *meta)
+                # e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support if r.e_idx != item.e_idx]).t()
+                onehots = self.to_onehot([], *meta)
 
                 if support_x is None:
                     support_x = onehots
@@ -179,7 +176,8 @@ class MeLURecommender(RecommenderBase):
             support_xs.append(support_x)
             support_ys.append(support_y)
 
-            user_ratings[user].append([tt.cat((support_x, query_x),0), tt.cat((support_y, query_y), 0)])
+            tmp = [support_x, support_y]  # [tt.cat((support_x, query_x),0), tt.cat((support_y, query_y), 0)]
+            user_ratings[user].append(tmp)
 
             query_xs.append(query_x)
             query_ys.append(query_y)
@@ -200,7 +198,7 @@ class MeLURecommender(RecommenderBase):
             for item in samples:
                 meta = self.entity_metadata[item]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support + query]).t()
+                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support]).t()
                 onehots = self.to_onehot(e, *meta)
 
                 if u_val is None:

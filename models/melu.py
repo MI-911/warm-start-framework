@@ -63,7 +63,7 @@ class MeLU(nn.Module):
         self.linear_out = nn.Linear(64, 1)
 
         self.activation = F.relu
-        self.implicit_activation = tt.sigmoid
+        self.implicit_activation = tt.tanh
 
     def forward(self, x):
         s = self._split(x)
@@ -77,7 +77,7 @@ class MeLU(nn.Module):
         x = self.fc2(x)
         x = self.activation(x)
 
-        return self.implicit_activation(self.linear_out(x))
+        return self.linear_out(x)
 
     def _split(self, x):
         start, stop = 0, self.n_entities
