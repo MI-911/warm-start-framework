@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 from copy import deepcopy
 from random import shuffle
 
@@ -126,12 +126,18 @@ class MeLURecommender(RecommenderBase):
 
     def fit(self, training, validation, max_iterations=100, verbose=True, save_to='./'):
         user_ratings = {}
+        items = []
         for user, ratings in training:
-            num_support = min(len(ratings) // 2, 10)
+            tmp = max(len(ratings) - 3, len(ratings) // 2)
+            num_support = min(tmp, 10)
             shuffle(ratings)
             support = ratings[:num_support]
             query = ratings[num_support:]
             user_ratings[user] = [support, query]
+            items.extend([r.e_idx for r in support])
+
+        item_count = Counter(items)
+        del items
 
         support_xs = []
         support_ys = []
@@ -145,7 +151,8 @@ class MeLURecommender(RecommenderBase):
             for item in support:
                 meta = self.entity_metadata[item.e_idx]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                onehots = self.to_onehot([], *meta)
+                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support if r.e_idx != item.e_idx]).t()
+                onehots = self.to_onehot(e, *meta)
 
                 if support_x is None:
                     support_x = onehots
@@ -159,7 +166,7 @@ class MeLURecommender(RecommenderBase):
             for item in query:
                 meta = self.entity_metadata[item.e_idx]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                e = tt.tensor([[0, r.e_idx] for r in support if r.rating == 1]).t()
+                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support]).t()
                 onehots = self.to_onehot(e, *meta)
 
                 if query_x is None:
@@ -172,7 +179,7 @@ class MeLURecommender(RecommenderBase):
             support_xs.append(support_x)
             support_ys.append(support_y)
 
-            user_ratings[user].append([support_x, support_y])
+            user_ratings[user].append([tt.cat((support_x, query_x),0), tt.cat((support_y, query_y), 0)])
 
             query_xs.append(query_x)
             query_ys.append(query_y)
@@ -181,10 +188,11 @@ class MeLURecommender(RecommenderBase):
         del support_xs, support_ys, query_xs, query_ys
 
         val = []
+        shuffle(validation)
         logger.debug(f'Creating validation set')
-        for user, (pos_sample, neg_samples) in validation:
+        for user, (pos_sample, neg_samples) in validation[:250]:
             u_val = None
-            support, _, support_train = user_ratings[user]
+            support, query, support_train = user_ratings[user]
             samples = np.array([pos_sample] + neg_samples)
             shuffle(samples)
             rank = np.argwhere(samples == pos_sample)[0]
@@ -192,7 +200,7 @@ class MeLURecommender(RecommenderBase):
             for item in samples:
                 meta = self.entity_metadata[item]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                e = tt.tensor([[0, r.e_idx] for r in support if r.rating == 1]).t()
+                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support + query]).t()
                 onehots = self.to_onehot(e, *meta)
 
                 if u_val is None:
@@ -201,6 +209,8 @@ class MeLURecommender(RecommenderBase):
                     u_val = tt.cat((u_val, onehots), 0)
 
             val.append((rank, u_val, support_train))
+
+        del validation, user_ratings
 
         batch_size = 16
         n_batches = (len(train_data) // batch_size) + 1
@@ -220,25 +230,31 @@ class MeLURecommender(RecommenderBase):
                 self.global_update(*zip(*batch))
 
             logger.debug('Starting validation')
+            t = tt.ones(len(val))
+            p = tt.zeros(len(val)).float()
             hit = 0.
-            for rank, val_data, (support_x, support_y) in val:
+            for i, (rank, val_data, (support_x, support_y)) in enumerate(val):
                 lst = np.arange(len(val_data))
-                preds = self.forward(support_x, support_y, val_data, 1)
+                preds = self.forward(support_x, support_y, val_data)
+                p[i] = preds[rank]
                 ordered = sorted(zip(preds, lst), reverse=True)
                 hit += 1. if rank in [r for _, r in ordered][:10] else 0.
 
-            hitrate = hit / len(val)
-            logger.debug(f'Hit at 10: {hitrate}')
 
-    def forward(self, support_set_x, support_set_y, query_set_x, num_local_update):
+            hitrate = hit / len(val)
+            loss = F.mse_loss(p, t)
+            logger.debug(f'Hit at 10: {hitrate}, Loss: {loss}')
+
+    def forward(self, support_set_x, support_set_y, query_set_x, num_local_update=1):
         for idx in range(num_local_update):
             if idx > 0:
                 self.model.load_state_dict(self.fast_weights)
             weight_for_local_update = list(self.model.state_dict().values())
-            support_set_y_pred = self.model(*self._split(support_set_x))
+            support_set_y_pred = self.model(support_set_x)
             loss = F.mse_loss(support_set_y_pred, support_set_y.view(-1, 1))
             self.model.zero_grad()
             grad = tt.autograd.grad(loss, self.model.parameters(), create_graph=True)
+
             # local update
             for i in range(self.weight_len):
                 if self.weight_name[i] in self.local_update_target_weight_name:
@@ -246,7 +262,7 @@ class MeLURecommender(RecommenderBase):
                 else:
                     self.fast_weights[self.weight_name[i]] = weight_for_local_update[i]
         self.model.load_state_dict(self.fast_weights)
-        query_set_y_pred = self.model(*self._split(query_set_x))
+        query_set_y_pred = self.model(query_set_x)
         self.model.load_state_dict(self.keep_weight)
         return query_set_y_pred
 
@@ -270,33 +286,32 @@ class MeLURecommender(RecommenderBase):
         self.store_parameters()
         return
 
-    def _split(self, x):
-        start, stop = 0, self.split.n_entities
-        entity = Variable(x[:, start:stop], requires_grad=False)
-
-        start = stop
-        stop += self.n_decade
-        decade = Variable(x[:, start:stop], requires_grad=False)
-
-        start = stop
-        stop += self.n_movies
-        movie = Variable(x[:, start:stop], requires_grad=False)
-
-        start = stop
-        stop += self.n_categories
-        category = Variable(x[:, start:stop], requires_grad=False)
-
-        start = stop
-        stop += self.n_persons
-        person = Variable(x[:, start:stop], requires_grad=False)
-
-        start = stop
-        stop += self.n_companies
-        company = Variable(x[:, start:stop], requires_grad=False)
-        return entity, decade, movie, category, person, company
+    def get_weight_avg_norm(self, support_set_x, support_set_y, num_local_update=1):
+        tmp = 0.
+        if self.use_cuda:
+            support_set_x = support_set_x.cuda()
+            support_set_y = support_set_y.cuda()
+        for idx in range(num_local_update):
+            if idx > 0:
+                self.model.load_state_dict(self.fast_weights)
+            weight_for_local_update = list(self.model.state_dict().values())
+            support_set_y_pred = self.model(support_set_x)
+            loss = F.mse_loss(support_set_y_pred, support_set_y.view(-1, 1))
+            # unit loss
+            loss /= tt.norm(loss).tolist()
+            self.model.zero_grad()
+            grad = tt.autograd.grad(loss, self.model.parameters(), create_graph=True)
+            for i in range(self.weight_len):
+                # For averaging Forbenius norm.
+                tmp += tt.norm(grad[i])
+                if self.weight_name[i] in self.local_update_target_weight_name:
+                    self.fast_weights[self.weight_name[i]] = weight_for_local_update[i] - self.local_lr * grad[i]
+                else:
+                    self.fast_weights[self.weight_name[i]] = weight_for_local_update[i]
+        return tmp / num_local_update
 
     def to_onehot(self, entities, decade, movie, category, person, company):
-        entity = self.create_onehot(entities, (1, self.split.n_entities))
+        entity = self.create_onehot(entities, (1, self.split.n_entities), True)
         decade = self.create_onehot(decade, (1, self.n_decade))
         movie = self.create_onehot(movie, (1, self.n_movies))
         category = self.create_onehot(category, (1, self.n_categories))
@@ -304,10 +319,13 @@ class MeLURecommender(RecommenderBase):
         company = self.create_onehot(company, (1, self.n_companies))
         return tt.cat((entity, decade, movie, category, person, company), 1)
 
-    def create_onehot(self, indices, shape):
+    def create_onehot(self, indices, shape, multi_value=False):
         t = tt.zeros(shape)
         if len(indices) > 0:
-            t[indices.tolist()] = 1
+            if multi_value:
+                t[indices[:2].tolist()] = indices[-1]
+            else:
+                t[indices.tolist()] = 1
         return t
 
     def predict(self, user, items):
