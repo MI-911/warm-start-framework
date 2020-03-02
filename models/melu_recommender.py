@@ -95,11 +95,10 @@ class MeLURecommender(RecommenderBase):
         triples = [(h, r, t) for h, r, t in df[['head_uri', 'relation', 'tail_uri']].values]
         e_idx_map = self.split.experiment.dataset.e_idx_map
 
-        entities = {}
+        entities = {v: {'d': set(), 'm': set(), 'cat': set(), 'p': set(), 'com': set()}
+                    for v in e_idx_map.values()}
 
         def append_entities(e, h, t):
-            if h not in e:
-                e[h] = {'d': set(), 'm': set(), 'cat': set(), 'p': set(), 'com': set()}
 
             if t in self.decade_index:
                 e[h]['d'].add(self.decade_index[t])
