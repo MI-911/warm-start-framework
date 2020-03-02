@@ -164,7 +164,7 @@ class MeLURecommender(RecommenderBase):
             for item in query:
                 meta = self.entity_metadata[item.e_idx]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support]).t()
+                e = tt.tensor([[0, r.e_idx] for r in support]).t()
                 onehots = self.to_onehot(e, *meta)
 
                 if query_x is None:
@@ -179,7 +179,7 @@ class MeLURecommender(RecommenderBase):
 
             tmp = [support_x, support_y]  # [tt.cat((support_x, query_x),0), tt.cat((support_y, query_y), 0)]
             user_ratings[user].append(tmp)
-            self.support[user] = tmp
+            self.support[user] = [support, tmp]
 
             query_xs.append(query_x)
             query_ys.append(query_y)
@@ -200,7 +200,7 @@ class MeLURecommender(RecommenderBase):
             for item in samples:
                 meta = self.entity_metadata[item]
                 meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-                e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support]).t()
+                e = tt.tensor([[0, r.e_idx] for r in support]).t()
                 onehots = self.to_onehot(e, *meta)
 
                 if u_val is None:
@@ -216,7 +216,6 @@ class MeLURecommender(RecommenderBase):
         n_batches = (len(train_data) // batch_size) + 1
 
         logger.debug('Starting training')
-        early_stop = False
         last_hitrate = -1
         # Go through all epochs
         for i in range(max_iterations):
@@ -247,12 +246,9 @@ class MeLURecommender(RecommenderBase):
 
             # Stop if no increase last two iterations.
             if hitrate < last_hitrate:
-                if early_stop:
-                    break
-                early_stop = True
+                break
             else:
                 last_hitrate = hitrate
-                early_stop = False
 
     def forward(self, support_set_x, support_set_y, query_set_x, num_local_update=1):
         for idx in range(num_local_update):
@@ -320,7 +316,7 @@ class MeLURecommender(RecommenderBase):
         return tmp / num_local_update
 
     def to_onehot(self, entities, decade, movie, category, person, company):
-        entity = self.create_onehot(entities, (1, self.split.n_entities), True)
+        entity = self.create_onehot(entities, (1, self.split.n_entities))
         decade = self.create_onehot(decade, (1, self.n_decade))
         movie = self.create_onehot(movie, (1, self.n_movies))
         category = self.create_onehot(category, (1, self.n_categories))
@@ -338,17 +334,19 @@ class MeLURecommender(RecommenderBase):
         return t
 
     def predict(self, user, items):
+        support, data = self.support[user]
+
         query = None
         for item in items:
             meta = self.entity_metadata[item]
             meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
-            # e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support if r.e_idx != item.e_idx]).t()
-            onehots = self.to_onehot([], *meta)
+            e = tt.tensor([[0, r.e_idx] for r in support if r.e_idx != item]).t()
+            onehots = self.to_onehot(e, *meta)
 
             if query is None:
                 query = onehots
             else:
                 query = tt.cat((query, onehots), 0)
 
-        preds = self.forward(*self.support[user], query)
+        preds = self.forward(*data, query)
         return {k: v for k, v in zip(items, preds)}
