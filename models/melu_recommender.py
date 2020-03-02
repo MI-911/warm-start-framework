@@ -44,7 +44,7 @@ class MeLURecommender(RecommenderBase):
 
         self.store_parameters()
         self.meta_optim = tt.optim.Adam(self.model.parameters(), lr=1e-5)
-        self.local_update_target_weight_name = ['entity_emb.weight', 'fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias',
+        self.local_update_target_weight_name = ['fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias',
                                                 'linear_out.weight', 'linear_out.bias']
 
     def store_parameters(self):
@@ -191,7 +191,7 @@ class MeLURecommender(RecommenderBase):
         val = []
         shuffle(validation)
         logger.debug(f'Creating validation set')
-        for user, (pos_sample, neg_samples) in validation[:250]:
+        for user, (pos_sample, neg_samples) in validation:
             u_val = None
             support, query, support_train = user_ratings[user]
             samples = np.array([pos_sample] + neg_samples)
@@ -341,7 +341,7 @@ class MeLURecommender(RecommenderBase):
     def predict(self, user, items):
         query = None
         for item in items:
-            meta = self.entity_metadata[item.e_idx]
+            meta = self.entity_metadata[item]
             meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
             # e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support if r.e_idx != item.e_idx]).t()
             onehots = self.to_onehot([], *meta)
