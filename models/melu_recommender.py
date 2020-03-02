@@ -40,6 +40,8 @@ class MeLURecommender(RecommenderBase):
         self.use_cuda = False
         self.local_lr = 1e-6
 
+        self.support = {}
+
         self.store_parameters()
         self.meta_optim = tt.optim.Adam(self.model.parameters(), lr=1e-5)
         self.local_update_target_weight_name = ['entity_emb.weight', 'fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias',
@@ -178,6 +180,7 @@ class MeLURecommender(RecommenderBase):
 
             tmp = [support_x, support_y]  # [tt.cat((support_x, query_x),0), tt.cat((support_y, query_y), 0)]
             user_ratings[user].append(tmp)
+            self.support[user] = tmp
 
             query_xs.append(query_x)
             query_ys.append(query_y)
@@ -214,7 +217,8 @@ class MeLURecommender(RecommenderBase):
         n_batches = (len(train_data) // batch_size) + 1
 
         logger.debug('Starting training')
-
+        early_stop = False
+        last_hitrate = -1
         # Go through all epochs
         for i in range(max_iterations):
             logger.debug(f'Starting epoch {i+1}')
@@ -238,10 +242,18 @@ class MeLURecommender(RecommenderBase):
                 ordered = sorted(zip(preds, lst), reverse=True)
                 hit += 1. if rank in [r for _, r in ordered][:10] else 0.
 
-
             hitrate = hit / len(val)
             loss = F.mse_loss(p, t)
             logger.debug(f'Hit at 10: {hitrate}, Loss: {loss}')
+
+            # Stop if no increase last two iterations.
+            if hitrate < last_hitrate:
+                if early_stop:
+                    break
+                early_stop = True
+            else:
+                last_hitrate = hitrate
+                early_stop = False
 
     def forward(self, support_set_x, support_set_y, query_set_x, num_local_update=1):
         for idx in range(num_local_update):
@@ -327,5 +339,17 @@ class MeLURecommender(RecommenderBase):
         return t
 
     def predict(self, user, items):
-        # TODO: Do
-        pass
+        query = None
+        for item in items:
+            meta = self.entity_metadata[item.e_idx]
+            meta = [tt.tensor([[0, x] for x in type]).t() for type in meta]
+            # e = tt.tensor([[0, r.e_idx, float(r.rating)] for r in support if r.e_idx != item.e_idx]).t()
+            onehots = self.to_onehot([], *meta)
+
+            if query is None:
+                query = onehots
+            else:
+                query = tt.cat((query, onehots), 0)
+
+        preds = self.forward(*self.support[user], query)
+        return {k: v for k, v in zip(items, preds)}
