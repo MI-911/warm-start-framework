@@ -9,3 +9,9 @@ networkx
 loguru
 sklearn
 scikit-optimize
+gensim
+joblib
+networkx
+pyltr
+scipy
+SPARQLWrapper
