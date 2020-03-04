@@ -2,22 +2,20 @@ from __future__ import print_function
 import codecs
 import json
 import numpy as np
+import pandas as pd
 import joblib
-from entity2vec import Entity2Vec
-from entity2rel import Entity2Rel
+from models.entity2rec.entity2vec import Entity2Vec
+from models.entity2rec.entity2rel import Entity2Rel
 import pyltr
 import sys
 
 sys.path.append('.')
-from metrics import precision_at_n, mrr, recall_at_n
 from collections import defaultdict
 import heapq
 
 
 class Property:
-
     def __init__(self, name, typology):
-
         self.name = name
         self._typology = typology
 
@@ -30,11 +28,8 @@ class Property:
     def typology(self, value):
 
         if value != 'collaborative' and value != 'content' and value != 'social':
-
             raise ValueError('Type of property can be: collaborative, content or social')
-
         else:
-
             self._typology = value
 
 
@@ -44,7 +39,7 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
     """Computes a set of relatedness scores between user-item pairs from a set of property-specific Knowledge Graph
     embeddings and user feedback and feeds them into a learning to rank algorithm"""
 
-    def __init__(self, dataset, run_all=False,
+    def __init__(self, split, run_all=False,
                  is_directed=False, preprocessing=True, is_weighted=False,
                  p=1, q=4, walk_length=10,
                  num_walks=500, dimensions=500, window_size=10,
@@ -53,29 +48,24 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
                  social_only=False):
 
         Entity2Vec.__init__(self, is_directed, preprocessing, is_weighted, p, q, walk_length, num_walks, dimensions,
-                            window_size, workers, iterations, feedback_file)
+                            window_size, workers, iterations, feedback_file, split)
 
         Entity2Rel.__init__(self)
 
         self.config_file = config
-
-        self.dataset = dataset
-
+        self.dataset = split.experiment.dataset.name
         self.properties = []
-
         self._set_properties()
 
         # run entity2vec to create the embeddings
         if run_all:
-
             print('Running entity2vec to generate property-specific embeddings...')
-
             properties_names = []
 
             for prop in self.properties:
                 properties_names.append(prop.name)
 
-            self.e2v_walks_learn(properties_names, dataset)  # run entity2vec
+            self.e2v_walks_learn(properties_names, self.dataset)  # run entity2vec
 
         # reads the embedding files
         self._set_embedding_files()
@@ -84,28 +74,19 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
         self.model = None
 
         # whether using only collab or content features
-
         self.collab_only = collab_only
-
         self.content_only = content_only
-
         self.social_only = social_only
 
         # initialize cluster models
-
         self.models = {}
         self.user_to_cluster = None
 
     def _set_properties(self):
-
-        with codecs.open(self.config_file, 'r', encoding='utf-8') as config_read:
-
-            property_file = json.loads(config_read.read())
-
-            for typology in property_file[self.dataset]:
-
-                for property_name in property_file[self.dataset][typology]:
-                    self.properties.append(Property(property_name, typology))
+        triples = pd.read_csv(self.split.experiment.dataset.triples_path)
+        relations = set(triples['relation'])
+        for relation in relations:
+            self.properties.append(Property(relation, 'Collaborative'))
 
     def _set_embedding_files(self):
 
@@ -234,23 +215,10 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
             N = 10 ** 8
 
         if optimize == 'NDCG':
-
             fit_metric = pyltr.metrics.NDCG(k=N)
-
-        elif optimize == 'P':
-
-            fit_metric = precision_at_n.PrecisionAtN(k=N)
-
-        elif optimize == 'MRR':
-
-            fit_metric = mrr.MRR(k=N)
-
         elif optimize == 'AP':
-
             fit_metric = pyltr.metrics.AP(k=N)
-
         else:
-
             raise ValueError('Metric not implemented')
 
         self.model = pyltr.models.LambdaMART(
@@ -271,9 +239,7 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
                 x_val, y_val, qids_val, metric=fit_metric)
 
             self.model.fit(x_train, y_train, qids_train, monitor=monitor)
-
         else:
-
             self.model.fit(x_train, y_train, qids_train)
 
     def predict(self, x_test, qids_test):

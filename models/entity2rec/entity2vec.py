@@ -2,8 +2,9 @@ from __future__ import print_function
 import json
 from os.path import isfile, join
 from os import makedirs
+import pandas as pd
 import argparse
-from node2vec import Node2Vec
+from models.entity2rec.node2vec import Node2Vec
 import time
 import shutil
 
@@ -13,33 +14,25 @@ class Entity2Vec(Node2Vec):
     """Generates a set of property-specific entity embeddings from a Knowledge Graph"""
 
     def __init__(self, is_directed, preprocessing, is_weighted, p, q, walk_length, num_walks, dimensions, window_size,
-                 workers, iterations, feedback_file):
+                 workers, iterations, feedback_file, split):
 
         Node2Vec.__init__(self, is_directed, preprocessing, is_weighted, p, q, walk_length, num_walks, dimensions,
                           window_size, workers, iterations)
 
+        self.split = split
         self.feedback_file = feedback_file
 
     def e2v_walks_learn(self, properties_names, dataset):
-
         n = self.num_walks
-
         p = int(self.p)
-
         q = int(self.q)
-
         l = self.walk_length
-
         d = self.dimensions
-
         it = self.iter
-
         win = self.window_size
 
         try:
-
             makedirs('emb/%s' % dataset)
-
         except:
             pass
 
@@ -51,20 +44,16 @@ class Entity2Vec(Node2Vec):
         # iterate through properties
 
         for prop_name in properties_names:
-
             print(prop_name)
-
             prop_short = prop_name
 
             if '/' in prop_name:
-
                 prop_short = prop_name.split('/')[-1]
 
             graph = "datasets/%s/graphs/%s.edgelist" % (dataset, prop_short)
 
             try:
                 makedirs('emb/%s/%s' % (dataset, prop_short))
-
             except:
                 pass
 
@@ -72,15 +61,13 @@ class Entity2Vec(Node2Vec):
                                                                                    prop_short, n, p, q, l, d, it, win)
 
             if not isfile(emb_output):  # check if embedding file already exists
-
                 print('running with', graph)
-
-                super(Entity2Vec, self).run(graph, emb_output)  # call the run function defined in parent class node2vec
-
+                triples = pd.read_csv(self.split.experiment.dataset.triples_path)
+                edgelist = triples.loc[triples['relation'] == prop_name][['head_uri', 'tail_uri']]
+                edgelist = edgelist.applymap(lambda x: self.split.experiment.dataset.e_idx_map[x])
+                super(Entity2Vec, self).run(edgelist, emb_output)  # call the run function defined in parent class node2vec
             else:
-
                 print('Embedding file already exist, going to next property...')
-
                 continue
 
     @staticmethod

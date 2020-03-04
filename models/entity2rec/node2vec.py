@@ -32,15 +32,10 @@ class Node2Vec(object):
         self.iter = iterations
 
     def read_graph(self, nx_g):
-
         if self.is_weighted:
-
             self.G = nx.read_edgelist(nx_g, data=(('weight', float),), create_using=nx.DiGraph(), edgetype=str)
-
         else:
-
-            self.G = nx.read_edgelist(nx_g, create_using=nx.DiGraph(), edgetype=str)
-
+            self.G = nx.from_pandas_edgelist(nx_g, source='head_uri', target='tail_uri')
             for edge in self.G.edges():
                 self.G[edge[0]][edge[1]]['weight'] = 1
 
@@ -330,7 +325,6 @@ class Node2Vec(object):
         return parser.parse_args()
 
     def run(self, input_graph, output):
-
         self.read_graph(input_graph)
 
         print('read G')

@@ -1,6 +1,5 @@
 from __future__ import print_function
 from gensim.models.keyedvectors import KeyedVectors
-from sparql import Sparql
 import codecs
 import time
 
@@ -57,49 +56,33 @@ class Entity2Rel(object):
 
     # write line in the svm format
     def write_line(self, query_uri, qid, candidate_uri, relevance, file, doc_id):
-
         scores = self.relatedness_scores(query_uri, candidate_uri)
-
         file.write('%d qid:%d' %(relevance,qid))
-
         count = 1
-
         l = len(scores)
 
         for score in scores:
-
             if count == l:  # last score, end of line
-
                 file.write(' %d:%f # %s-%s %d\n' %(count,score,query_uri,candidate_uri, int(doc_id)))
-
             else:
-
                 file.write(' %d:%f' %(count,score))
-
                 count += 1
 
     def feature_generator(self, data):
-
         data_name = (data.split('/')[-1]).split('.')[0]
 
         with codecs.open('features/ceccarelli/%s.svm' %data_name,'w', encoding='utf-8') as data_write:
-
-            with codecs.open(data,'r', encoding='utf-8') as data_read:
-
+            with codecs.open(data, 'r', encoding='utf-8') as data_read:
                 for i, line in enumerate(data_read):
-
                     wiki_id_query, qid, wiki_id_candidate, relevance, doc_id = self.parse_ceccarelli_line(line)
 
                     print(wiki_id_query)
-
-                    uri_query = Sparql.get_uri_from_wiki_id(wiki_id_query)
-
-                    uri_candidate = Sparql.get_uri_from_wiki_id(wiki_id_candidate)
+                    uri_query = []  # Sparql.get_uri_from_wiki_id(wiki_id_query)
+                    uri_candidate = []  # Sparql.get_uri_from_wiki_id(wiki_id_candidate)
 
                     self.write_line(uri_query, qid, uri_candidate, relevance, data_write, doc_id)
 
         print('finished writing features')
-
         print("--- %s seconds ---" % (time.time() - start_time))
 
 
