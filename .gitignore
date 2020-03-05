@@ -13,3 +13,5 @@ venv
 notebooks/bpr.ipynb~
 
 *.gz
+
+*.emd

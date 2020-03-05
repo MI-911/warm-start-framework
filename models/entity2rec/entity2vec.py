@@ -62,9 +62,14 @@ class Entity2Vec(Node2Vec):
 
             if not isfile(emb_output):  # check if embedding file already exists
                 print('running with', graph)
+                idx_map = self.split.experiment.dataset.e_idx_map
                 triples = pd.read_csv(self.split.experiment.dataset.triples_path)
                 edgelist = triples.loc[triples['relation'] == prop_name][['head_uri', 'tail_uri']]
-                edgelist = edgelist.applymap(lambda x: self.split.experiment.dataset.e_idx_map[x])
+
+                # TODO remove following line when data is correct.
+                edgelist = edgelist.loc[edgelist['head_uri'].isin(idx_map) & edgelist['tail_uri'].isin(idx_map)]
+
+                # edgelist = edgelist.applymap(lambda x: idx_map[x])
                 super(Entity2Vec, self).run(edgelist, emb_output)  # call the run function defined in parent class node2vec
             else:
                 print('Embedding file already exist, going to next property...')

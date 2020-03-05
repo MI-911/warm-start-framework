@@ -21,15 +21,11 @@ class Entity2Rel(object):
         self.embedding_files[property] = KeyedVectors.load_word2vec_format(embedding_file, binary=self.binary)
 
     def relatedness_score(self, property, uri1, uri2):
-
         emb_file = self.embedding_files[property]
 
         try:
-
             score = emb_file.similarity(uri1, uri2)
-
         except KeyError:
-
             score = 0.
 
         return score

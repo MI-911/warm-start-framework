@@ -86,7 +86,7 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
         triples = pd.read_csv(self.split.experiment.dataset.triples_path)
         relations = set(triples['relation'])
         for relation in relations:
-            self.properties.append(Property(relation, 'Collaborative'))
+            self.properties.append(Property(relation, 'collaborative'))
 
     def _set_embedding_files(self):
 
