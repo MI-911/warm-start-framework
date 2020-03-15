@@ -10,9 +10,10 @@ class Entity2Rel(object):
     Computes a set of relatedness scores between a pair of entities from a set of property-specific Knowledge Graph embeddings
     """
 
-    def __init__(self, binary=True):
+    def __init__(self, split, binary=True):
 
         self.binary = binary
+        self.reverse_map = {v: k for k, v in split.experiment.dataset.e_idx_map.items()}
         self.embedding_files = {}
 
     # add embedding file
@@ -22,6 +23,12 @@ class Entity2Rel(object):
 
     def relatedness_score(self, property, uri1, uri2):
         emb_file = self.embedding_files[property]
+        if property != 'feedback':
+            uri1 = self.reverse_map[uri1]
+        else:
+            uri1 = str(uri1)
+
+        uri2 = self.reverse_map[uri2]
 
         try:
             score = emb_file.similarity(uri1, uri2)

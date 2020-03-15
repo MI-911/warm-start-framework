@@ -190,7 +190,7 @@ class Evaluator(object):
                 x_train, y_train, qids_train, items_train = self._compute_features_parallel('train', *args)
 
                 print('Compute features for validation')
-                x_val, y_val, qids_val, items_val = self._compute_features_parallel('val', *args)
+                x_val, y_val, qids_val, items_val = self._compute_features_parallel('val', *args[:-1], validation)
             else:
                 x_train, y_train, qids_train, items_train = None, None, None, None
                 x_val, y_val, qids_val, items_val = None, None, None, None
@@ -213,7 +213,12 @@ class Evaluator(object):
     def _compute_features_parallel(self, data, recommender, users_list_chunks, n_jobs, users_list):
 
         if n_jobs > 1:  # parallel
-            user_item_features = Parallel(n_jobs=n_jobs)(delayed(self._compute_features)
+            if data == 'val':
+                user_item_features = Parallel(n_jobs=n_jobs)(delayed(self._compute_features)
+                                                             (data, recommender, ul)
+                                                             for ul in [users_list[i::n_jobs] for i in range(n_jobs)])
+            else:
+                user_item_features = Parallel(n_jobs=n_jobs)(delayed(self._compute_features)
                                                          (data, recommender, users_list)
                                                          for users_list in users_list_chunks)
 
@@ -238,8 +243,16 @@ class Evaluator(object):
         Titems = []
 
         for user in users_list:
+            pos_sample = -1
+            if data == 'val':
+                user, (pos_sample, neg_samples) = user
+                candidate_items = neg_samples + [pos_sample]
+            elif data == 'test':
+                user, candidate_items = user
+            else:
+                candidate_items = self.get_candidates(user, data)
+
             print(user)
-            candidate_items = self.get_candidates(user, data)
 
             for item in candidate_items:
                 items_liked_by_user = self.items_liked_by_user_dict[user]
@@ -248,7 +261,12 @@ class Evaluator(object):
                                                                   users_liking_the_item)
 
                 TX.append(features)
-                relevance = self.get_relevance(user, item, data)
+
+                if (data == 'val' or data == 'test') and item == pos_sample:
+                    relevance = 1
+                else:
+                    relevance = self.get_relevance(user, item, data)
+
                 Ty.append(relevance)
                 Tqids.append(user)
                 Titems.append(item)

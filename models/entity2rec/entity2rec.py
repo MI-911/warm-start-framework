@@ -39,7 +39,7 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
     """Computes a set of relatedness scores between user-item pairs from a set of property-specific Knowledge Graph
     embeddings and user feedback and feeds them into a learning to rank algorithm"""
 
-    def __init__(self, split, run_all=False,
+    def __init__(self, split, training, run_all=False,
                  is_directed=False, preprocessing=True, is_weighted=False,
                  p=1, q=4, walk_length=10,
                  num_walks=500, dimensions=500, window_size=10,
@@ -48,9 +48,9 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
                  social_only=False):
 
         Entity2Vec.__init__(self, is_directed, preprocessing, is_weighted, p, q, walk_length, num_walks, dimensions,
-                            window_size, workers, iterations, feedback_file, split)
+                            window_size, workers, iterations, feedback_file, split, training)
 
-        Entity2Rel.__init__(self)
+        Entity2Rel.__init__(self, split)
 
         self.config_file = config
         self.dataset = split.experiment.dataset.name
@@ -86,7 +86,9 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
         triples = pd.read_csv(self.split.experiment.dataset.triples_path)
         relations = set(triples['relation'])
         for relation in relations:
-            self.properties.append(Property(relation, 'collaborative'))
+            self.properties.append(Property(relation, 'content'))
+
+        self.properties.append(Property('feedback', 'collaborative'))
 
     def _set_embedding_files(self):
 
@@ -100,10 +102,20 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
             if '/' in prop_name:
                 prop_short = prop_name.split('/')[-1]
 
-            self.add_embedding(prop_name, u'emb/%s/%s/num%s_p%d_q%d_l%s_d%s_iter%d_winsize%d.emd' % (
-                self.dataset, prop_short, self.num_walks, int(self.p), int(self.q), self.walk_length, self.dimensions,
-                self.iter,
-                self.window_size))
+            if prop_name == 'feedback':
+                splitting = self.split.experiment.name
+                number = self.split.name.split('.')[0]
+                emb_file = "emb/%s/%s/num%d_p%d_q%d_l%d_d%d_iter" \
+                             "%d_winsize%d%s-%s.emd" % (self.dataset, prop_short, self.num_walks, int(self.p),
+                                                        int(self.q), self.walk_length, self.dimensions, self.iter,
+                                                        self.window_size, splitting, number)
+            else:
+                emb_file = u'emb/%s/%s/num%s_p%d_q%d_l%s_d%s_iter%d_winsize%d.emd' % (
+                    self.dataset, prop_short, self.num_walks, int(self.p), int(self.q), self.walk_length, self.dimensions,
+                    self.iter,
+                    self.window_size)
+
+            self.add_embedding(prop_name, emb_file)
 
     def collab_similarities(self, user, item):
 

@@ -14,12 +14,14 @@ class Entity2Vec(Node2Vec):
     """Generates a set of property-specific entity embeddings from a Knowledge Graph"""
 
     def __init__(self, is_directed, preprocessing, is_weighted, p, q, walk_length, num_walks, dimensions, window_size,
-                 workers, iterations, feedback_file, split):
+                 workers, iterations, feedback_file, split, training):
 
         Node2Vec.__init__(self, is_directed, preprocessing, is_weighted, p, q, walk_length, num_walks, dimensions,
                           window_size, workers, iterations)
 
         self.split = split
+        self.reverse_map = {v: k for k,v in split.experiment.dataset.e_idx_map.items()}
+        self.training = training
         self.feedback_file = feedback_file
 
     def e2v_walks_learn(self, properties_names, dataset):
@@ -35,6 +37,15 @@ class Entity2Vec(Node2Vec):
             makedirs('emb/%s' % dataset)
         except:
             pass
+
+        feedback_edges = {'head_uri': [], 'tail_uri': []}
+        for user, ratings in self.training:
+            for rating in ratings:
+                if rating.rating == 1 and rating.e_idx in self.reverse_map:
+                    feedback_edges['head_uri'].append(str(user))
+                    feedback_edges['tail_uri'].append(self.reverse_map[rating.e_idx])
+
+        feedback_edges = pd.DataFrame.from_dict(feedback_edges)
 
         # copy define feedback_file, if declared
         if self.feedback_file:
@@ -57,17 +68,34 @@ class Entity2Vec(Node2Vec):
             except:
                 pass
 
-            emb_output = "emb/%s/%s/num%d_p%d_q%d_l%d_d%d_iter%d_winsize%d.emd" % (dataset,
-                                                                                   prop_short, n, p, q, l, d, it, win)
+            if prop_name == 'feedback':
+                splitting = self.split.experiment.name
+                number = self.split.name.split('.')[0]
+                emb_output = "emb/%s/%s/num%d_p%d_q%d_l%d_d%d_iter%d_winsize%d%s-%s.emd" % (dataset,
+                                                                                           prop_short, n, p, q, l, d,
+                                                                                           it, win, splitting, number)
+            else:
+                emb_output = "emb/%s/%s/num%d_p%d_q%d_l%d_d%d_iter%d_winsize%d.emd" % (dataset,
+                                                                                       prop_short, n, p, q, l, d, it,
+                                                                                       win)
+
+            # Always create new embeddings for feedback
+            # TODO: Remove outcommenting
+            # if prop_name == 'feedback':
+            #     super(Entity2Vec, self).run(feedback_edges, emb_output)
+            #     continue
 
             if not isfile(emb_output):  # check if embedding file already exists
                 print('running with', graph)
-                idx_map = self.split.experiment.dataset.e_idx_map
-                triples = pd.read_csv(self.split.experiment.dataset.triples_path)
-                edgelist = triples.loc[triples['relation'] == prop_name][['head_uri', 'tail_uri']]
+                if prop_name == 'feedback':
+                    edgelist = feedback_edges
+                else:
+                    idx_map = self.split.experiment.dataset.e_idx_map
+                    triples = pd.read_csv(self.split.experiment.dataset.triples_path)
+                    edgelist = triples.loc[triples['relation'] == prop_name][['head_uri', 'tail_uri']]
 
-                # TODO remove following line when data is correct.
-                edgelist = edgelist.loc[edgelist['head_uri'].isin(idx_map) & edgelist['tail_uri'].isin(idx_map)]
+                    # TODO remove following line when data is correct.
+                    edgelist = edgelist.loc[edgelist['head_uri'].isin(idx_map) & edgelist['tail_uri'].isin(idx_map)]
 
                 # edgelist = edgelist.applymap(lambda x: idx_map[x])
                 super(Entity2Vec, self).run(edgelist, emb_output)  # call the run function defined in parent class node2vec
