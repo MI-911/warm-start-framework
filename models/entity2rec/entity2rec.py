@@ -4,10 +4,14 @@ import json
 import numpy as np
 import pandas as pd
 import joblib
+from loguru import logger
+
 from models.entity2rec.entity2vec import Entity2Vec
 from models.entity2rec.entity2rel import Entity2Rel
 import pyltr
 import sys
+
+from models.entity2rec.metrics import precision_at_n
 
 sys.path.append('.')
 from collections import defaultdict
@@ -39,10 +43,10 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
     """Computes a set of relatedness scores between user-item pairs from a set of property-specific Knowledge Graph
     embeddings and user feedback and feeds them into a learning to rank algorithm"""
 
-    def __init__(self, split, training, run_all=False,
+    def __init__(self, split, training, run_all=True,
                  is_directed=False, preprocessing=True, is_weighted=False,
-                 p=1, q=4, walk_length=10,
-                 num_walks=500, dimensions=500, window_size=10,
+                 p=1, q=1, walk_length=100,
+                 num_walks=50, dimensions=200, window_size=30,
                  workers=8, iterations=5, config='config/properties.json',
                  feedback_file=False, collab_only=False, content_only=False,
                  social_only=False):
@@ -59,7 +63,7 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
 
         # run entity2vec to create the embeddings
         if run_all:
-            print('Running entity2vec to generate property-specific embeddings...')
+            logger.debug('Running entity2vec to generate property-specific embeddings...')
             properties_names = []
 
             for prop in self.properties:
@@ -228,6 +232,8 @@ class Entity2Rec(Entity2Vec, Entity2Rel):
 
         if optimize == 'NDCG':
             fit_metric = pyltr.metrics.NDCG(k=N)
+        elif optimize == 'P':
+            fit_metric = precision_at_n.PrecisionAtN(k=N)
         elif optimize == 'AP':
             fit_metric = pyltr.metrics.AP(k=N)
         else:

@@ -3,8 +3,11 @@ import codecs
 import collections
 import sys
 
+from loguru import logger
+
+from models.entity2rec import metrics
+
 sys.path.append('.')
-import metrics
 from joblib import Parallel, delayed
 import pyltr
 import numpy as np
@@ -61,7 +64,6 @@ class Evaluator(object):
 
         for u, ratings in train:
             for rating in ratings:
-                # TODO revert idx to uri
                 item = rating.e_idx
                 relevance = rating.rating
                 self.items_rated_by_user_train[u].append(item)
@@ -114,16 +116,7 @@ class Evaluator(object):
             'P@5': metrics.PrecisionAtN(k=5),  # P@5
             'P@10': metrics.PrecisionAtN(k=10),  # P@10
             'MAP': metrics.AP(k=M),  # MAP
-            'R@5': metrics.RecallAtN(k=5),
-            'R@10': metrics.RecallAtN(k=10),
             'NDCG': metrics.NDCG(k=M, gain_type='identity'),  # NDCG
-            'MRR': metrics.MRR(k=M),  # MRR
-            'SER@5': metrics.Serendipity(self.top_N_items, k=5),  # Serendipity@5
-            'SER@10': metrics.Serendipity(self.top_N_items, k=10),  # Serendipity@10
-            'NOV@5': metrics.Novelty(self.items_rated_by_user_train, k=5),  # Novelty@5
-            'NOV@10': metrics.Novelty(self.items_rated_by_user_train, k=10),  # Novelty@10
-            'DIV@5': metrics.Diversity(self.items_liked_by_user_dict, k=5),  # Diversity@5
-            'DIV@10': metrics.Diversity(self.items_liked_by_user_dict, k=10)  # Diversity@10
         }
 
     def get_candidates(self, user, data, num_negative_candidates=100):
@@ -182,27 +175,27 @@ class Evaluator(object):
 
         args = (recommender, users_list_chunks, n_jobs, users_list)
         if validation:
-            # print('Compute features for testing')
+            # logger.debug('Compute features for testing')
             # x_test, y_test, qids_test, items_test = self._compute_features_parallel('test', *args)
 
             if supervised:
-                print('Compute features for training')
+                logger.debug('Compute features for training')
                 x_train, y_train, qids_train, items_train = self._compute_features_parallel('train', *args)
 
-                print('Compute features for validation')
+                logger.debug('Compute features for validation')
                 x_val, y_val, qids_val, items_val = self._compute_features_parallel('val', *args[:-1], validation)
             else:
                 x_train, y_train, qids_train, items_train = None, None, None, None
                 x_val, y_val, qids_val, items_val = None, None, None, None
         else:
             if supervised:
-                print('Compute features for training')
+                logger.debug('Compute features for training')
                 x_train, y_train, qids_train, items_train = \
                     self._compute_features_parallel('train', *args)
             else:
                 x_train, y_train, qids_train, items_train = None, None, None, None
 
-            # print('Compute features for testing')
+            # logger.debug('Compute features for testing')
             # x_test, y_test, qids_test, items_test = self._compute_features_parallel('test', *args)
 
             x_val, y_val, qids_val, items_val = None, None, None, None
@@ -252,8 +245,6 @@ class Evaluator(object):
             else:
                 candidate_items = self.get_candidates(user, data)
 
-            print(user)
-
             for item in candidate_items:
                 items_liked_by_user = self.items_liked_by_user_dict[user]
                 users_liking_the_item = self.users_liking_an_item_dict[item]
@@ -270,6 +261,7 @@ class Evaluator(object):
                 Ty.append(relevance)
                 Tqids.append(user)
                 Titems.append(item)
+                pass
 
         return np.asarray(TX), np.asarray(Ty), np.asarray(Tqids), np.asarray(Titems)
 
@@ -316,8 +308,8 @@ class Evaluator(object):
         if self.metrics:
 
             if verbose:
-                print('\n')
-                print('Strategy-----Metric-----Mean-----Var\n')
+                logger.debug('\n')
+                logger.debug('Strategy-----Metric-----Mean-----Var\n')
 
             with open(write_to_file, 'w') as file_write:
 
@@ -350,7 +342,7 @@ class Evaluator(object):
                             scores[(strategy_name, metric_name)] = (score, var)
 
                             if verbose:
-                                print('%s-----%s-----%.4f+-%.4f\n' % (strategy_name, metric_name, score, var))
+                                logger.debug('%s-----%s-----%.4f+-%.4f\n' % (strategy_name, metric_name, score, var))
 
                             if i < len_metrics - 1:
 
@@ -367,12 +359,12 @@ class Evaluator(object):
         with open(train) as train_file:
             x_train, y_train, qids_train, items_train = pyltr.data.letor.read_dataset(train_file)
 
-        print('finished reading train')
+        logger.debug('finished reading train')
 
         with open(test) as test_file:
             x_test, y_test, qids_test, items_test = pyltr.data.letor.read_dataset(test_file)
 
-        print('finished reading test')
+        logger.debug('finished reading test')
 
         x_val, y_val, qids_val, items_val = None, None, None, None
 
@@ -380,7 +372,7 @@ class Evaluator(object):
             with open(val) as val_file:
                 x_val, y_val, qids_val, items_val = pyltr.data.letor.read_dataset(val_file)
 
-            print('finished reading val')
+            logger.debug('finished reading val')
 
         return x_train, y_train, qids_train, items_train, \
                x_test, y_test, qids_test, items_test, \
@@ -433,8 +425,6 @@ class Evaluator(object):
                 index_dict[item] = index
 
         for user in users_list:
-
-            print(user)
 
             user_id = int(user.strip('user'))
 
@@ -535,11 +525,11 @@ class Evaluator(object):
                 c = {}
                 ranks = sorted(d, key=lambda x: d[x])
 
-                print(seed)
+                logger.debug(seed)
                 for key, value in d.items():
                     c[key] = ranks.index(key)  # replace scores with ranking
 
-                print(c)
+                logger.debug(c)
                 item_to_item_similarity_dict[seed] = c
 
             with open('datasets/%s/item_to_item_ranking' % dataset, 'wb') as f:
@@ -555,7 +545,7 @@ class Evaluator(object):
 
             for i1 in items:
 
-                print(i1)
+                logger.debug(i1)
 
                 for i2 in items:
                     W[i1][i2] = np.mean(recommender.collab_similarities(i1, i2))

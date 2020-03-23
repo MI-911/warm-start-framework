@@ -4,6 +4,9 @@ from os.path import isfile, join
 from os import makedirs
 import pandas as pd
 import argparse
+
+from loguru import logger
+
 from models.entity2rec.node2vec import Node2Vec
 import time
 import shutil
@@ -49,13 +52,13 @@ class Entity2Vec(Node2Vec):
 
         # copy define feedback_file, if declared
         if self.feedback_file:
-            print('Copying feedback file %s' % self.feedback_file)
+            logger.debug('Copying feedback file %s' % self.feedback_file)
             shutil.copy2(self.feedback_file, "datasets/%s/graphs/feedback.edgelist" % dataset)
 
         # iterate through properties
 
         for prop_name in properties_names:
-            print(prop_name)
+            logger.debug(prop_name)
             prop_short = prop_name
 
             if '/' in prop_name:
@@ -86,7 +89,7 @@ class Entity2Vec(Node2Vec):
             #     continue
 
             if not isfile(emb_output):  # check if embedding file already exists
-                print('running with', graph)
+                logger.debug('running with', graph)
                 if prop_name == 'feedback':
                     edgelist = feedback_edges
                 else:
@@ -100,7 +103,7 @@ class Entity2Vec(Node2Vec):
                 # edgelist = edgelist.applymap(lambda x: idx_map[x])
                 super(Entity2Vec, self).run(edgelist, emb_output)  # call the run function defined in parent class node2vec
             else:
-                print('Embedding file already exist, going to next property...')
+                logger.debug('Embedding file already exist, going to next property...')
                 continue
 
     @staticmethod
@@ -167,35 +170,35 @@ if __name__ == '__main__':
 
     args = Entity2Vec.parse_args()
 
-    print('Parameters:\n')
+    logger.debug('Parameters:\n')
 
-    print('walk length = %d\n' % args.walk_length)
+    logger.debug('walk length = %d\n' % args.walk_length)
 
-    print('number of walks per entity = %d\n' % args.num_walks)
+    logger.debug('number of walks per entity = %d\n' % args.num_walks)
 
-    print('p = %s\n' % args.p)
+    logger.debug('p = %s\n' % args.p)
 
-    print('q = %s\n' % args.q)
+    logger.debug('q = %s\n' % args.q)
 
-    print('weighted = %s\n' % args.weighted)
+    logger.debug('weighted = %s\n' % args.weighted)
 
-    print('directed = %s\n' % args.directed)
+    logger.debug('directed = %s\n' % args.directed)
 
-    print('no_preprocessing = %s\n' % args.preprocessing)
+    logger.debug('no_preprocessing = %s\n' % args.preprocessing)
 
-    print('dimensions = %s\n' % args.dimensions)
+    logger.debug('dimensions = %s\n' % args.dimensions)
 
-    print('iterations = %s\n' % args.iter)
+    logger.debug('iterations = %s\n' % args.iter)
 
-    print('window size = %s\n' % args.window_size)
+    logger.debug('window size = %s\n' % args.window_size)
 
-    print('workers = %s\n' % args.workers)
+    logger.debug('workers = %s\n' % args.workers)
 
-    print('config_file = %s\n' % args.config_file)
+    logger.debug('config_file = %s\n' % args.config_file)
 
-    print('dataset = %s\n' % args.dataset)
+    logger.debug('dataset = %s\n' % args.dataset)
 
-    print('feedback file = %s\n' % args.feedback_file)
+    logger.debug('feedback file = %s\n' % args.feedback_file)
 
     e2v = Entity2Vec(args.directed, args.preprocessing, args.weighted, args.p, args.q, args.walk_length, args.num_walks,
                      args.dimensions, args.window_size, args.workers, args.iter, args.config_file,
@@ -203,4 +206,4 @@ if __name__ == '__main__':
 
     e2v.e2v_walks_learn()
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+    logger.debug("--- %s seconds ---" % (time.time() - start_time))

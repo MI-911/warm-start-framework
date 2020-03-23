@@ -3,6 +3,8 @@ from gensim.models.keyedvectors import KeyedVectors
 import codecs
 import time
 
+from loguru import logger
+
 
 class Entity2Rel(object):
 
@@ -79,14 +81,14 @@ class Entity2Rel(object):
                 for i, line in enumerate(data_read):
                     wiki_id_query, qid, wiki_id_candidate, relevance, doc_id = self.parse_ceccarelli_line(line)
 
-                    print(wiki_id_query)
+                    logger.debug(wiki_id_query)
                     uri_query = []  # Sparql.get_uri_from_wiki_id(wiki_id_query)
                     uri_candidate = []  # Sparql.get_uri_from_wiki_id(wiki_id_candidate)
 
                     self.write_line(uri_query, qid, uri_candidate, relevance, data_write, doc_id)
 
-        print('finished writing features')
-        print("--- %s seconds ---" % (time.time() - start_time))
+        logger.debug('finished writing features')
+        logger.debug("--- %s seconds ---" % (time.time() - start_time))
 
 
 if __name__ == '__main__':
@@ -110,18 +112,18 @@ if __name__ == '__main__':
     rel.add_embedding(embedding1)
     rel.add_embedding(embedding2)
 
-    print('\n')
-    print("Relatedness between Pulp Fiction and Jackie Brown is:\n")
+    logger.debug('\n')
+    logger.debug("Relatedness between Pulp Fiction and Jackie Brown is:\n")
     scores = rel.relatedness_scores(uri1, uri2)
     for s in scores:
-        print(s)
-        print('\n')
+        logger.debug(s)
+        logger.debug('\n')
 
-    print("Relatedness between Pulp Fiction and Romeo and Juliet is:\n")
+    logger.debug("Relatedness between Pulp Fiction and Romeo and Juliet is:\n")
     scores = rel.relatedness_scores(uri1, uri3)
 
     for s in scores:
-        print(s)
-        print('\n')
+        logger.debug(s)
+        logger.debug('\n')
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+    logger.debug("--- %s seconds ---" % (time.time() - start_time))

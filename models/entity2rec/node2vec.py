@@ -5,6 +5,7 @@ import random
 import time
 import argparse
 from gensim.models import Word2Vec
+from loguru import logger
 
 
 class Node2Vec(object):
@@ -132,7 +133,7 @@ class Node2Vec(object):
         model = Word2Vec(walks, size=self.dimensions, window=self.window_size, min_count=0,
                          workers=self.workers, iter=self.iter, negative=25, sg=1)
 
-        print("defined model using w2v")
+        logger.debug("defined model using w2v")
 
         model.wv.save_word2vec_format(output, binary=True)
 
@@ -142,7 +143,7 @@ class Node2Vec(object):
         self.alias_edges = None
         self.G = None
 
-        print("saved model in word2vec binary format")
+        logger.debug("saved model in word2vec binary format")
 
         return
 
@@ -177,11 +178,11 @@ class Node2Vec(object):
 
         walks = []
 
-        print('Walk iteration:')
+        logger.debug('Walk iteration:')
 
         for walk_iter in range(self.num_walks):
 
-            print(str(walk_iter + 1), '/', str(self.num_walks))
+            logger.debug(str(walk_iter + 1), '/', str(self.num_walks))
             random.shuffle(nodes)
 
             c = 1
@@ -189,7 +190,7 @@ class Node2Vec(object):
             for node in nodes:
 
                 if c % 10001 == 0:
-                    print('Processed %d nodes' % c)
+                    logger.debug('Processed %d nodes' % c)
 
                 c += 1
 
@@ -327,11 +328,11 @@ class Node2Vec(object):
     def run(self, input_graph, output):
         self.read_graph(input_graph)
 
-        print('read G')
+        logger.debug('read G')
 
         if self.preprocessing:
             self.preprocess_transition_probs()
-            print('preprocessed')
+            logger.debug('preprocessed')
 
         self.learn_embeddings(output)
 
@@ -341,37 +342,37 @@ if __name__ == '__main__':
 
     args = Node2Vec.parse_args()
 
-    print('Parameters:\n')
+    logger.debug('Parameters:\n')
 
-    print('input = %s\n' % args.input)
+    logger.debug('input = %s\n' % args.input)
 
-    print('output = %s\n' % args.output)
+    logger.debug('output = %s\n' % args.output)
 
-    print('walk length = %d\n' % args.walk_length)
+    logger.debug('walk length = %d\n' % args.walk_length)
 
-    print('number of walks per entity = %d\n' % args.num_walks)
+    logger.debug('number of walks per entity = %d\n' % args.num_walks)
 
-    print('p = %s\n' % args.p)
+    logger.debug('p = %s\n' % args.p)
 
-    print('q = %s\n' % args.q)
+    logger.debug('q = %s\n' % args.q)
 
-    print('weighted = %s\n' % args.weighted)
+    logger.debug('weighted = %s\n' % args.weighted)
 
-    print('directed = %s\n' % args.directed)
+    logger.debug('directed = %s\n' % args.directed)
 
-    print('preprocessing = %s\n' % args.preprocessing)
+    logger.debug('preprocessing = %s\n' % args.preprocessing)
 
-    print('dimensions = %s\n' % args.dimensions)
+    logger.debug('dimensions = %s\n' % args.dimensions)
 
-    print('iterations = %s\n' % args.iter)
+    logger.debug('iterations = %s\n' % args.iter)
 
-    print('window size = %s\n' % args.window_size)
+    logger.debug('window size = %s\n' % args.window_size)
 
-    print('workers = %s\n' % args.workers)
+    logger.debug('workers = %s\n' % args.workers)
 
     node2vec_graph = Node2Vec(args.directed, args.preprocessing, args.weighted, args.p, args.q, args.walk_length,
                               args.num_walks, args.dimensions, args.window_size, args.workers, args.iter)
 
     node2vec_graph.run(args.input, args.output)
 
-    print("--- %s seconds ---" % (time.time() - start_time))
+    logger.debug("--- %s seconds ---" % (time.time() - start_time))
