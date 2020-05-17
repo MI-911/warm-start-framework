@@ -164,7 +164,10 @@ class ItemKNNRecommender(BaseKNN):
         score = {}
         for index, similarities in enumerate(cs):
             topk = sorted([(r, s) for r, s in zip(ratings, similarities)], key=lambda x: x[1], reverse=True)[:self.k]
-            score[items[index]] = np.einsum('i,i->', *zip(*topk))
+            try:
+                score[items[index]] = np.einsum('i,i->', *zip(*topk))
+            except ValueError:
+                score[items[index]] = 0
 
         # A high score means item knn is sure in a positive prediction.
         return score
