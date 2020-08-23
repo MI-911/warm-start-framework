@@ -1,6 +1,5 @@
-# Model Framework 
-
-Data loaders and model training/evaluation pipelines used in the pre-specialisation project for group MI911 @ Department of Computer Science, Aalborg University, Denmark.
+# Warm-start framework 
+Data loaders and model training/evaluation pipelines used in the MindReader paper published at CIKM 2020.
 
 ## Get the most recent data
 
