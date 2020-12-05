@@ -2,7 +2,14 @@ import random
 from collections import Counter, defaultdict
 from random import shuffle
 
+from loguru import logger
+from tqdm import tqdm
+
 from data_loading.generic_data_loader import DataLoader
+
+
+def pad_to_length(str, length):
+    return str + (' ' * (length - len(str)))
 
 
 class LeaveOneOutDataLoader(DataLoader):
@@ -13,10 +20,15 @@ class LeaveOneOutDataLoader(DataLoader):
         self.test = []
 
     def make(self, movie_to_entity_ratio=0.5, replace_movies_with_descriptive_entities=True, n_negative_samples=100,
-             keep_all_ratings=False, random_seed=42, movies_only=False, without_top_pop=False):
+             keep_all_ratings=False, random_seed=42, movies_only=False, without_top_pop=False,
+             position=0, filename="", progress=""):
         """
         Samples new positive and negative items for every user.
         """
+
+        # Pad to the longest possible filename because it looks nicer
+        filename = pad_to_length(f'[{filename}]', len('[./datasets/wtp-substituting-3-4/0.json]'))
+
         self.random = random.Random(random_seed)
         if movies_only:
             self.ratings = [r for r in self.ratings if r.is_movie_rating]
@@ -49,7 +61,7 @@ class LeaveOneOutDataLoader(DataLoader):
 
         progress_current = 0
         progress_max = len(u_r_map)
-        for u, ratings in u_r_map.items():
+        for u, ratings in tqdm(u_r_map.items(), position=position, desc=f'{progress} {filename}'):
             # Set the random generator for this user
             self.random = random.Random(self.random_seed + u + int(100 * movie_to_entity_ratio))
 
