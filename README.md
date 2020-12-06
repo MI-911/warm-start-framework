@@ -1,5 +1,16 @@
 # Warm-start framework 
-Data loaders and model training/evaluation pipelines used in the MindReader paper published at CIKM 2020.
+Data loaders and model training/evaluation pipelines written using Python 3.8 used in the MindReader paper published at CIKM 2020, [https://doi.org/10.1145/3340531.3412759](https://doi.org/10.1145/3340531.3412759). 
+You can read more about our dataset at [https://mindreader.tech/dataset](https://mindreader.tech/dataset), and remember to cite our work:
+
+```bib
+@inproceedings{brams2020mindreader,
+  title={MindReader: Recommendation over Knowledge Graph Entities with Explicit User Ratings},
+  author={Brams, Anders H and Jakobsen, Anders L and Jendal, Theis E and Lissandrini, Matteo and Dolog, Peter and Hose, Katja},
+  booktitle={Proceedings of the 29th ACM International Conference on Information \& Knowledge Management},
+  pages={2975--2982},
+  year={2020}
+}
+```
 
 ## Get the most recent data
 
