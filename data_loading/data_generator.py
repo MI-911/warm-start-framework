@@ -1,9 +1,11 @@
+from tqdm import tqdm
+
 from data_loading.loo_data_loader import LeaveOneOutDataLoader
 from os.path import join
 import json
 import os
 from multiprocessing.pool import Pool
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, RLock, freeze_support
 from time import time
 from shutil import copyfile
 
@@ -139,7 +141,7 @@ def generate_without_top_pop(filter_unkowns=False):
 
 
 def _generate_dataset(args): 
-    (experiment, args), (filter_unknowns, without_top_pop, i, base_dir) = args
+    (experiment, args), (filter_unknowns, without_top_pop, i, base_dir, position, progress) = args
     experiment_dir = join(base_dir, f"{'ntp' if without_top_pop else 'wtp'}-{experiment}")
     if not os.path.exists(experiment_dir):
         os.makedirs(experiment_dir)
@@ -159,7 +161,7 @@ def _generate_dataset(args):
                 unify_user_indices=False,
                 random_seed=random_seed
             )
-            train, val, test = loader.make(**args)
+            train, val, test = loader.make(**args, position=position, filename=filename, progress=progress)
             dict_train = []
             for u, ratings in train:
                 dict_train.append((u, [r.__dict__ for r in ratings]))
@@ -205,7 +207,14 @@ def prepare(datasets_dir='./datasets', mindreader_dir='./data_loading/mindreader
 
 
 def generate(filter_unknowns=False, without_top_pop=False, base_dir='./results', n_experiments=10):
+    freeze_support()
+    tqdm.set_lock(RLock())  # for managing output contention
     for i in range(n_experiments):
-        with Pool(cpu_count()) as p:
-            p.map(_generate_dataset, [(args, (filter_unknowns, without_top_pop, i, base_dir)) for args in experiments])
+        progress = f'[Experiment {i}/{n_experiments}]'
+        with Pool(cpu_count(), initializer=tqdm.set_lock, initargs=(tqdm.get_lock(),)) as p:
+            p.map(_generate_dataset, [
+                (args, (filter_unknowns, without_top_pop, i, base_dir, position, progress))
+                for position, args
+                in enumerate(experiments)
+            ])
 

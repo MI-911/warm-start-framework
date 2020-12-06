@@ -180,4 +180,3 @@ if __name__ == '__main__':
             'e_idx_map': data_loader.e_idx_map,
             'n_users': data_loader.n_users
         }, fp)
-    
