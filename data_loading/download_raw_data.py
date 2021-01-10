@@ -20,7 +20,7 @@ def download_data(save_to='./mindreader', only_completed=True):
     """
     _ensure_directory_exists(save_to)
 
-    ratings_url = 'https://mindreader.tech/api/ratings?versions=100k,100k-newer,100k-fix,thesis,thesis-ppr,thesis-launch'
+    ratings_url = 'https://mindreader.tech/api/ratings?versions=100k,100k-newer,100k-fix'
     entities_url = 'https://mindreader.tech/api/entities'
     triples_url = 'https://mindreader.tech/api/triples'
 
